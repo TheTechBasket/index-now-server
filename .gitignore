@@ -1,0 +1,31 @@
+# Dependencies
+node_modules
+.pnpm-store/
+
+# Build output
+dist/
+.tsbuildinfo
+
+# App data (SQLite + user files)
+data/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Internal planning / agent notes (not for public release)
+plans/*
+init.md
+.claude/
+.opencode/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+*.swp
+*.swo

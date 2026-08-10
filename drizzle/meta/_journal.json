@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1783266018974,
+      "tag": "0000_fantastic_marauders",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1783268983659,
+      "tag": "0001_luxuriant_roulette",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784096062904,
+      "tag": "0002_light_nicolaos",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784101414640,
+      "tag": "0003_common_felicia_hardy",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786349460578,
+      "tag": "0004_typical_mephistopheles",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786359469804,
+      "tag": "0005_tricky_tana_nile",
+      "breakpoints": true
+    }
+  ]
+}

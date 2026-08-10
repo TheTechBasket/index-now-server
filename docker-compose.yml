@@ -1,0 +1,20 @@
+services:
+  indexnow-server:
+    build: .
+    container_name: indexnow-server
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3020}:3020"
+    environment:
+      - PORT=3020
+      - NODE_ENV=production
+      - DATABASE_PATH=/app/data/indexnow.db
+      - AUTH_ENABLED=${AUTH_ENABLED:-true}
+      - AUTH_SECRET=${AUTH_SECRET:-}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+    volumes:
+      - indexnow-data:/app/data
+
+volumes:
+  indexnow-data:

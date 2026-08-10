@@ -1,0 +1,6 @@
+<!-- Config: https://help.github.com/en/github/building-a-strong-community/configuring-issue-templates-for-your-repository#configuring-template-choosers -->
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/TheTechBasket/index-now-server/security/advisories/new
+    about: Don't open a public issue for security problems — open a private advisory instead. See SECURITY.md.

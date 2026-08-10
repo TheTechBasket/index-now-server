@@ -1,0 +1,61 @@
+name: Bug report
+description: Report something that's broken or behaving unexpectedly
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please don't paste secrets,
+        API keys, or `AUTH_SECRET` values anywhere in this form.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the problem. Include the expected vs actual behaviour.
+      placeholder: 'When I clicked Submit on site X, …'
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps someone else can follow to see the same behaviour.
+      placeholder: |
+        1. Run `pnpm dev`
+        2. Add a site with sitemap URL …
+        3. Click …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: IndexNow Server version
+      description: 'Run `git rev-parse HEAD` if you are on a checkout, or paste your image tag.'
+      placeholder: 'commit-sha or image tag'
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: 'node -v'
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: 'Ubuntu 24.04 / macOS 15 / Docker on …'
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Paste the server console output around the issue. No secrets.
+      render: shell
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Screenshots, related issues, workarounds you tried, etc.

@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest something the app should do (or do better)
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: The use-case, not the solution. Who hits this and when?
+      placeholder: 'I manage 30+ sites and …'
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help?
+      description: Your idea. Rough is fine — we can shape it together.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Other features, workarounds, or external tools that don't quite fit.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This fits the self-hosted, single-admin, SQLite-only model of the project.
+          required: false
