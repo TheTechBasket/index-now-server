@@ -5,6 +5,25 @@
 
 Self-hosted dashboard for managing [IndexNow](https://www.indexnow.org/) submissions across multiple sites. Handles keys, sitemaps, and submission scheduling from one place — pushes to Bing, Yandex, and every other participating engine via `api.indexnow.org`.
 
+![IndexNow Server Dashboard](.github/screenshots/ss_1786365040.webp)
+
+<details>
+<summary>More screenshots</summary>
+
+**URL list & site detail**
+![URL list](.github/screenshots/ss_1786365133.webp)
+
+**Edit site dialog**
+![Edit site](.github/screenshots/ss_1786365161.webp)
+
+**Settings page**
+![Settings](.github/screenshots/ss_1786365182.webp)
+
+**Login page**
+![Login](.github/screenshots/ss_1786365191.webp)
+
+</details>
+
 ## Features
 
 - **Multi-site** — add sites, generate/rotate IndexNow keys, bulk Submit / Sync / Verify / Delete
