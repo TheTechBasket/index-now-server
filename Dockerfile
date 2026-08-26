@@ -6,15 +6,18 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # --- Deps layer (cache-friendly) ---
 FROM base AS deps
 WORKDIR /app
-COPY pnpm-lock.yaml package.json ./
-RUN pnpm install --frozen-lockfile
+RUN apk add --no-cache python3 make g++
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile; \
+    cd node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3 && \
+    npx --yes node-gyp@latest rebuild --release
 
 # --- Build layer ---
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm build
+RUN ./node_modules/.bin/vite build
 
 # --- Production image ---
 FROM base AS runner
