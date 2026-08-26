@@ -4,7 +4,22 @@ import type { FastifyInstance } from 'fastify'
 import { authEnabled, readSession } from '../auth.ts'
 import { db } from '../db/index.ts'
 import { settings, sites, siteUrls, submissions } from '../db/schema.ts'
-import { discoverSitemaps, runSubmission, statusExpr, syncSitemap, URL_STATUSES, urlCounts, verifyKeyDeployment } from '../indexnow.ts'
+import {
+  deleteAllUrls,
+  deleteUrlsByIds,
+  discoverSitemaps,
+  getSitemapWarnings,
+  pruneRemovedUrls,
+  resetUrlStatuses,
+  runSubmission,
+  SitemapFetchError,
+  statusExpr,
+  syncSitemap,
+  URL_STATUSES,
+  urlCounts,
+  validateExplicitUrls,
+  verifyKeyDeployment,
+} from '../indexnow.ts'
 import { EVENT_KEYS, sendDiscord } from '../notify.ts'
 
 const siteBody = {
@@ -120,8 +135,85 @@ export async function apiRoutes(app: FastifyInstance) {
     const site = db.select().from(sites).where(eq(sites.id, id)).get()
     if (!site) return reply.code(404).send({ error: 'Site not found' })
     const body = req.body as { urls?: string[] } | undefined
-    return runSubmission(site, 'manual', body?.urls)
+    if (body?.urls?.length) {
+      const v = validateExplicitUrls(site, body.urls)
+      if (v.invalid.length > 0) {
+        return reply.code(400).send({
+          error: `Rejected ${v.invalid.length} URL(s) not in sitemap or host mismatch`,
+          invalid: v.invalid,
+        })
+      }
+    }
+    try {
+      return await runSubmission(site, 'manual', body?.urls)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('Rejected') || msg.includes('host_mismatch') || msg.includes('not_in_sitemap')) {
+        return reply.code(400).send({ error: msg })
+      }
+      throw err
+    }
   })
+
+  // Reset submission status for all URLs of a site
+  app.post('/sites/:id/urls/reset', async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const site = db.select().from(sites).where(eq(sites.id, id)).get()
+    if (!site) return reply.code(404).send({ error: 'Site not found' })
+    const changed = resetUrlStatuses(id)
+    return { ok: true, changed, counts: urlCounts(site) }
+  })
+
+  // Bulk delete selected URLs
+  app.post(
+    '/sites/:id/urls/bulk-delete',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: { ids: { type: 'array', items: { type: 'integer' }, minItems: 1, maxItems: 5000 } },
+          required: ['ids'],
+          additionalProperties: false,
+        },
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.params as { id: string }
+      const site = db.select().from(sites).where(eq(sites.id, id)).get()
+      if (!site) return reply.code(404).send({ error: 'Site not found' })
+      const { ids } = req.body as { ids: number[] }
+      const deleted = deleteUrlsByIds(id, ids)
+      return { ok: true, deleted, counts: urlCounts(site) }
+    },
+  )
+
+  // Delete all or pruned URLs via query params
+  app.delete(
+    '/sites/:id/urls',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            all: { type: 'string', enum: ['true', '1'] },
+            status: { type: 'string', enum: ['removed'] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.params as { id: string }
+      const site = db.select().from(sites).where(eq(sites.id, id)).get()
+      if (!site) return reply.code(404).send({ error: 'Site not found' })
+      const { all, status } = req.query as { all?: string; status?: 'removed' }
+      let deleted = 0
+      if (all) deleted = deleteAllUrls(id)
+      else if (status === 'removed') deleted = pruneRemovedUrls(site)
+      else return reply.code(400).send({ error: 'Provide ?all=true or ?status=removed or use bulk-delete' })
+      return { ok: true, deleted, counts: urlCounts(site) }
+    },
+  )
 
   // Refresh URL data from the sitemap without submitting anything
   app.post('/sites/:id/sync', async (req, reply) => {
@@ -131,9 +223,41 @@ export async function apiRoutes(app: FastifyInstance) {
     try {
       return await syncSitemap(site)
     } catch (err) {
+      if (err instanceof SitemapFetchError) {
+        const code = err.statusCode === 404 ? 404 : 502
+        return reply.code(code).send({
+          error: err.message,
+          statusCode: err.statusCode,
+          suggestedSitemap: err.suggestedSitemap,
+          finalUrl: err.finalUrl,
+        })
+      }
       return reply.code(502).send({ error: err instanceof Error ? err.message : 'Sync failed' })
     }
   })
+
+  // Update sitemap URL after redirect/404 suggestion
+  app.post(
+    '/sites/:id/sitemap-fix',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: { sitemapUrl: { type: 'string', format: 'uri', maxLength: 2000 } },
+          required: ['sitemapUrl'],
+          additionalProperties: false,
+        },
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.params as { id: string }
+      const site = db.select().from(sites).where(eq(sites.id, id)).get()
+      if (!site) return reply.code(404).send({ error: 'Site not found' })
+      const { sitemapUrl } = req.body as { sitemapUrl: string }
+      const updated = db.update(sites).set({ sitemapUrl }).where(eq(sites.id, id)).returning().get()
+      return updated
+    },
+  )
 
   // Verify that the IndexNow key is deployed at https://host/key.txt
   app.post('/sites/:id/verify-key', async (req, reply) => {
@@ -204,8 +328,11 @@ export async function apiRoutes(app: FastifyInstance) {
         .offset(offset)
         .all()
       const total = db.select({ n: sql<number>`count(*)` }).from(siteUrls).where(where).get()?.n ?? 0
+      // Warnings cover the whole URL set, not this page's filter/search — only worth the full-table
+      // scan on the default (unfiltered, first-page) view where the banner is actually shown.
+      const warnings = !q && !status && offset === 0 ? getSitemapWarnings(site) : undefined
 
-      return { rows, total, counts: urlCounts(site), lastSyncAt: site.lastSyncAt }
+      return { rows, total, counts: urlCounts(site), lastSyncAt: site.lastSyncAt, warnings }
     },
   )
 
@@ -320,7 +447,22 @@ export async function publicRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: 'Site is not set to webhook submission level' })
       }
       const urls = (req.body as { urls?: string[] } | null)?.urls
-      return runSubmission(site, 'webhook', urls)
+      if (urls?.length) {
+        const v = validateExplicitUrls(site, urls)
+        if (v.invalid.length > 0) {
+          return reply.code(400).send({
+            error: `Rejected ${v.invalid.length} URL(s) not in sitemap or host mismatch`,
+            invalid: v.invalid,
+          })
+        }
+      }
+      try {
+        return await runSubmission(site, 'webhook', urls)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        if (msg.includes('Rejected')) return reply.code(400).send({ error: msg })
+        throw err
+      }
     },
   )
 }

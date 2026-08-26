@@ -1,6 +1,6 @@
 {
   "name": "index-now-server",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Self-hosted IndexNow submission manager — keys, sitemaps, schedules, one dashboard.",
   "type": "module",
   "license": "MIT",

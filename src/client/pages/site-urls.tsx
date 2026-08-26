@@ -1,15 +1,17 @@
 import {
+  AlertTriangle,
   ArrowLeft,
-  Check,
   ChevronRight,
   Copy,
   ExternalLink,
   Plus,
   RefreshCw,
+  RotateCcw,
   Send,
   Settings as SettingsIcon,
   ShieldCheck,
   ShieldX,
+  Trash2,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -18,6 +20,7 @@ import { Layout } from '@/components/layout'
 import { SiteDialog } from '@/components/site-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -26,6 +29,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -44,7 +54,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { api, type KeyVerifyResult, type Site, type SiteUrl, type SitemapSyncResult, type UrlCounts, type UrlStatus } from '@/lib/api'
+import { api, type KeyVerifyResult, type Site, type SiteUrl, type SitemapSyncResult, type SitemapWarnings, type UrlCounts, type UrlStatus } from '@/lib/api'
 
 const PAGE = 100
 
@@ -78,16 +88,21 @@ export function SiteUrlsPage({
   const [total, setTotal] = useState(0)
   const [counts, setCounts] = useState<UrlCounts | null>(null)
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
+  const [warnings, setWarnings] = useState<SitemapWarnings | null>(null)
   const [sitemapCount, setSitemapCount] = useState<number | null>(null)
   const [keyStatus, setKeyStatus] = useState<'idle' | 'checking' | 'found' | 'missing' | null>(null)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<UrlStatus | 'all'>('all')
   const [page, setPage] = useState(0)
-  const [busy, setBusy] = useState<'sync' | 'submit' | null>(null)
+  const [busy, setBusy] = useState<'sync' | 'submit' | 'reset' | 'prune' | 'deleteAll' | 'deleteSelected' | null>(null)
   const [editOpen, setEditOpen] = useState(initialEditOpen)
   const [manualOpen, setManualOpen] = useState(false)
   const [manualUrlsInput, setManualUrlsInput] = useState('')
   const [submittingManual, setSubmittingManual] = useState(false)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [confirmAction, setConfirmAction] = useState<'reset' | 'prune' | 'deleteAll' | 'deleteSelected' | null>(null)
+  const [syncError, setSyncError] = useState<{ message: string; suggestedSitemap?: string; finalUrl?: string } | null>(null)
+  const [redirectInfo, setRedirectInfo] = useState<{ from: string; to: string } | null>(null)
 
   const loadSite = useCallback(() => {
     api<Site[]>('/sites')
@@ -108,7 +123,7 @@ export function SiteUrlsPage({
     const params = new URLSearchParams({ limit: String(PAGE), offset: String(page * PAGE) })
     if (q) params.set('q', q)
     if (status !== 'all') params.set('status', status)
-    api<{ rows: SiteUrl[]; total: number; counts: UrlCounts; lastSyncAt: string | null }>(
+    api<{ rows: SiteUrl[]; total: number; counts: UrlCounts; lastSyncAt: string | null; warnings?: SitemapWarnings }>(
       `/sites/${siteId}/urls?${params}`,
     )
       .then((d) => {
@@ -116,6 +131,14 @@ export function SiteUrlsPage({
         setTotal(d.total)
         setCounts(d.counts)
         setLastSyncAt(d.lastSyncAt)
+        // server only recomputes warnings on the default unfiltered first-page view;
+        // keep the last known value on paginated/filtered/search requests
+        if (d.warnings) setWarnings(d.warnings)
+        // prune selection to only rows still on page
+        setSelected((prev) => {
+          const ids = new Set(d.rows.map((r) => r.id))
+          return new Set([...prev].filter((id) => ids.has(id)))
+        })
       })
       .catch((err) => toast.error(err.message))
   }, [siteId, q, status, page])
@@ -124,13 +147,42 @@ export function SiteUrlsPage({
 
   async function sync() {
     setBusy('sync')
+    setSyncError(null)
+    setRedirectInfo(null)
     try {
       const fresh = await api<SitemapSyncResult>(`/sites/${siteId}/sync`, { method: 'POST' })
       setSitemapCount(fresh.sitemapCount)
+      if (fresh.redirected && fresh.finalUrl && fresh.finalUrl !== site?.sitemapUrl) {
+        setRedirectInfo({ from: site!.sitemapUrl, to: fresh.finalUrl })
+      }
       toast.success(`Synced — ${fresh.total} URLs, ${fresh.pending} pending`)
       load()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Sync failed')
+      const e = err as Error & { suggestedSitemap?: string; finalUrl?: string }
+      const msg = e.message
+      if (e.suggestedSitemap || e.finalUrl || msg.includes('404')) {
+        setSyncError({ message: msg, suggestedSitemap: e.suggestedSitemap, finalUrl: e.finalUrl })
+      }
+      toast.error(msg)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function fixSitemap(url: string) {
+    setBusy('sync')
+    try {
+      await api(`/sites/${siteId}/sitemap-fix`, { method: 'POST', body: JSON.stringify({ sitemapUrl: url }) })
+      setSyncError(null)
+      setRedirectInfo(null)
+      loadSite()
+      // auto re-sync after fix
+      const fresh = await api<SitemapSyncResult>(`/sites/${siteId}/sync`, { method: 'POST' })
+      setSitemapCount(fresh.sitemapCount)
+      toast.success(`Sitemap updated, synced ${fresh.total} URLs`)
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Update failed')
     } finally {
       setBusy(null)
     }
@@ -196,6 +248,70 @@ export function SiteUrlsPage({
     }
   }
 
+  async function doReset() {
+    setBusy('reset')
+    try {
+      await api(`/sites/${siteId}/urls/reset`, { method: 'POST' })
+      toast.success('All URL statuses reset to new')
+      setConfirmAction(null)
+      setSelected(new Set())
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Reset failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function doPrune() {
+    setBusy('prune')
+    try {
+      const r = await api<{ deleted: number }>(`/sites/${siteId}/urls?status=removed`, { method: 'DELETE' })
+      toast.success(`Removed ${r.deleted} URLs no longer in sitemap`)
+      setConfirmAction(null)
+      setSelected(new Set())
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Prune failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function doDeleteAll() {
+    setBusy('deleteAll')
+    try {
+      const r = await api<{ deleted: number }>(`/sites/${siteId}/urls?all=true`, { method: 'DELETE' })
+      toast.success(`Deleted ${r.deleted} URLs`)
+      setConfirmAction(null)
+      setSelected(new Set())
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function doDeleteSelected() {
+    if (selected.size === 0) return
+    setBusy('deleteSelected')
+    try {
+      const r = await api<{ deleted: number }>(`/sites/${siteId}/urls/bulk-delete`, {
+        method: 'POST',
+        body: JSON.stringify({ ids: [...selected] }),
+      })
+      toast.success(`Deleted ${r.deleted} URLs`)
+      setConfirmAction(null)
+      setSelected(new Set())
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function verifyKey() {
     setKeyStatus('checking')
     try {
@@ -214,6 +330,28 @@ export function SiteUrlsPage({
   }
 
   const pages = Math.max(1, Math.ceil(total / PAGE))
+  const allPageSelected = rows.length > 0 && rows.every((r) => selected.has(r.id))
+  const somePageSelected = rows.some((r) => selected.has(r.id)) && !allPageSelected
+
+  function toggleSelect(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  function toggleSelectAllPage() {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allPageSelected) {
+        for (const r of rows) next.delete(r.id)
+      } else {
+        for (const r of rows) next.add(r.id)
+      }
+      return next
+    })
+  }
 
   return (
     <Layout>
@@ -231,6 +369,7 @@ export function SiteUrlsPage({
             <h1 className="text-2xl font-bold tracking-tight">{site?.name ?? '…'}</h1>
             {site && (
               <button
+                type="button"
                 onClick={verifyKey}
                 title={site.keyVerified ? 'Key Verified — click to re-check' : 'Key Unverified — click to check'}
                 className="flex items-center gap-1 text-xs"
@@ -260,6 +399,7 @@ export function SiteUrlsPage({
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
+            type="button"
             size="sm"
             variant="outline"
             onClick={() => setEditOpen(true)}
@@ -269,6 +409,7 @@ export function SiteUrlsPage({
           </Button>
 
           <Button
+            type="button"
             size="sm"
             variant="outline"
             onClick={() => setManualOpen(true)}
@@ -277,17 +418,109 @@ export function SiteUrlsPage({
             <Plus className="size-3.5" /> Custom URL
           </Button>
 
-          <Button variant="outline" onClick={sync} disabled={busy !== null} size="sm" className="gap-1.5">
+          <Button type="button" variant="outline" onClick={sync} disabled={busy !== null} size="sm" className="gap-1.5">
             <RefreshCw className={`size-3.5 ${busy === 'sync' ? 'animate-spin' : ''}`} aria-hidden />
             {busy === 'sync' ? 'Syncing…' : 'Sync Sitemap'}
           </Button>
 
-          <Button onClick={submitPending} disabled={busy !== null || !counts?.pending} size="sm" className="gap-1.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5">
+                <SettingsIcon className="size-3.5" /> Manage URLs
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => setConfirmAction('reset')} disabled={!counts || counts.total === 0}>
+                <RotateCcw className="size-3.5" /> Reset all statuses to new
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setConfirmAction('prune')}
+                disabled={!counts || counts.removed === 0}
+              >
+                <Trash2 className="size-3.5" /> Remove URLs not in sitemap ({counts?.removed ?? 0})
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setConfirmAction('deleteAll')}
+                className="text-destructive focus:text-destructive"
+                disabled={!counts || counts.total === 0}
+              >
+                <Trash2 className="size-3.5" /> Delete all URLs
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button type="button" onClick={submitPending} disabled={busy !== null || !counts?.pending} size="sm" className="gap-1.5">
             <Send className="size-3.5" aria-hidden />
             {busy === 'submit' ? 'Submitting…' : `Submit Pending${counts?.pending ? ` (${counts.pending})` : ''}`}
           </Button>
         </div>
       </div>
+
+      {syncError && (
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs">
+          <p className="flex items-center gap-1.5 font-semibold text-destructive">
+            <AlertTriangle className="size-3.5" /> Sitemap sync failed
+          </p>
+          <p className="mt-1 text-muted-foreground">{syncError.message}</p>
+          {syncError.suggestedSitemap && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[11px] break-all">{syncError.suggestedSitemap}</span>
+              <Button type="button" size="sm" className="h-7 text-xs" onClick={() => fixSitemap(syncError.suggestedSitemap!)}>
+                Use this sitemap
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSyncError(null)}>
+                Dismiss
+              </Button>
+            </div>
+          )}
+          {syncError.finalUrl && !syncError.suggestedSitemap && (
+            <p className="mt-1 font-mono text-[11px]">Final URL: {syncError.finalUrl}</p>
+          )}
+          {!syncError.suggestedSitemap && (
+            <Button type="button" size="sm" variant="outline" className="mt-2 h-7 text-xs" onClick={() => setSyncError(null)}>
+              Dismiss
+            </Button>
+          )}
+        </div>
+      )}
+
+      {redirectInfo && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+          <p className="flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-300">
+            <AlertTriangle className="size-3.5" /> Sitemap redirected
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            Your sitemap URL redirected from <span className="font-mono break-all">{redirectInfo.from}</span> to{' '}
+            <span className="font-mono break-all">{redirectInfo.to}</span>. Consider updating it.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button type="button" size="sm" className="h-7 text-xs" onClick={() => fixSitemap(redirectInfo.to)}>
+              Update to final URL
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setRedirectInfo(null)}>
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {warnings && warnings.mismatchedCount > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+          <p className="flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-300">
+            <AlertTriangle className="size-3.5" /> {warnings.mismatchedCount} URL{warnings.mismatchedCount !== 1 ? 's' : ''} in sitemap do not match site host ({site?.host})
+            {warnings.localCount > 0 && ` (includes ${warnings.localCount} localhost URL(s))`}
+          </p>
+          <p className="mt-1 text-muted-foreground">Fix your sitemap or site host. These URLs will be flagged and blocked from manual submission.</p>
+          {warnings.samples.length > 0 && (
+            <ul className="mt-2 list-disc pl-5 font-mono text-[11px] text-amber-800 dark:text-amber-200">
+              {warnings.samples.map((s) => (
+                <li key={s} className="truncate">{s}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -323,6 +556,7 @@ export function SiteUrlsPage({
         {counts && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <button
+              type="button"
               onClick={() => setStatus('all')}
               className={`rounded border px-2 py-0.5 font-medium transition-colors ${
                 status === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/40 hover:bg-muted'
@@ -331,6 +565,7 @@ export function SiteUrlsPage({
               All ({counts.total})
             </button>
             <button
+              type="button"
               onClick={() => setStatus('new')}
               className={`rounded border px-2 py-0.5 font-medium transition-colors ${
                 status === 'new' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/40 hover:bg-muted'
@@ -339,6 +574,7 @@ export function SiteUrlsPage({
               New ({counts.new})
             </button>
             <button
+              type="button"
               onClick={() => setStatus('updated')}
               className={`rounded border px-2 py-0.5 font-medium transition-colors ${
                 status === 'updated' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/40 hover:bg-muted'
@@ -347,6 +583,7 @@ export function SiteUrlsPage({
               Updated ({counts.updated})
             </button>
             <button
+              type="button"
               onClick={() => setStatus('submitted')}
               className={`rounded border px-2 py-0.5 font-medium transition-colors ${
                 status === 'submitted' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/40 hover:bg-muted'
@@ -358,10 +595,50 @@ export function SiteUrlsPage({
         )}
       </div>
 
+      {selected.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5 text-xs">
+          <span className="font-medium">{selected.size} selected</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={async () => {
+              const urls = rows.filter((r) => selected.has(r.id)).map((r) => r.url)
+              if (urls.length === 0) return
+              try {
+                await api(`/sites/${siteId}/submit`, { method: 'POST', body: JSON.stringify({ urls }) })
+                toast.success(`Submitted ${urls.length} URLs`)
+                setSelected(new Set())
+                load()
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : 'Submit failed')
+              }
+            }}
+          >
+            <Send className="size-3.5" /> Submit selected
+          </Button>
+          <Button type="button" size="sm" variant="destructive" className="h-7 text-xs" onClick={() => setConfirmAction('deleteSelected')}>
+            <Trash2 className="size-3.5" /> Delete selected
+          </Button>
+          <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSelected(new Set())}>
+            Clear
+          </Button>
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
+              <TableHead className="w-8">
+                <Checkbox
+                  checked={allPageSelected}
+                  indeterminate={somePageSelected}
+                  onCheckedChange={toggleSelectAllPage}
+                  aria-label="Select all on page"
+                />
+              </TableHead>
               <TableHead className="w-[55%]">URL</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Sitemap Lastmod</TableHead>
@@ -373,13 +650,16 @@ export function SiteUrlsPage({
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
                   {counts?.total === 0 ? 'No URLs found. Click "Sync Sitemap" to index pages.' : 'No URLs match your search filters.'}
                 </TableCell>
               </TableRow>
             )}
             {rows.map((row) => (
-              <TableRow key={row.id} className="hover:bg-muted/20">
+              <TableRow key={row.id} className="hover:bg-muted/20" data-selected={selected.has(row.id)}>
+                <TableCell>
+                  <Checkbox checked={selected.has(row.id)} onCheckedChange={() => toggleSelect(row.id)} aria-label={`Select ${row.url}`} />
+                </TableCell>
                 <TableCell className="max-w-md truncate font-mono text-xs" title={row.url}>
                   <div className="flex items-center gap-2">
                     <span className="truncate">{row.url}</span>
@@ -402,6 +682,7 @@ export function SiteUrlsPage({
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button
+                      type="button"
                       size="icon"
                       variant="ghost"
                       onClick={() => submitSingleUrl(row.url)}
@@ -411,6 +692,7 @@ export function SiteUrlsPage({
                       <Send className="size-3.5" />
                     </Button>
                     <Button
+                      type="button"
                       size="icon"
                       variant="ghost"
                       onClick={() => copy(row.url, 'URL')}
@@ -420,6 +702,7 @@ export function SiteUrlsPage({
                       <Copy className="size-3.5" />
                     </Button>
                     <Button
+                      type="button"
                       size="icon"
                       variant="ghost"
                       asChild
@@ -429,6 +712,25 @@ export function SiteUrlsPage({
                       <a href={row.url} target="_blank" rel="noreferrer">
                         <ExternalLink className="size-3.5" />
                       </a>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={async () => {
+                        if (!window.confirm(`Delete ${row.url}?`)) return
+                        try {
+                          await api(`/sites/${siteId}/urls/bulk-delete`, { method: 'POST', body: JSON.stringify({ ids: [row.id] }) })
+                          toast.success('URL deleted')
+                          load()
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : 'Delete failed')
+                        }
+                      }}
+                      title="Delete URL"
+                      className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="size-3.5" />
                     </Button>
                   </div>
                 </TableCell>
@@ -458,10 +760,11 @@ export function SiteUrlsPage({
             Page {page + 1} of {pages} ({total} total URLs)
           </span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)} className="h-7 text-xs">
+            <Button type="button" variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)} className="h-7 text-xs">
               Previous
             </Button>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               disabled={page + 1 >= pages}
@@ -479,7 +782,7 @@ export function SiteUrlsPage({
           <DialogHeader>
             <DialogTitle>Submit Custom URLs</DialogTitle>
             <DialogDescription>
-              Paste one or more URLs (one per line) for immediate submission to IndexNow engines.
+              Only URLs already in the sitemap and matching {site?.host ?? 'site host'} can be submitted. Others are rejected.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
@@ -496,12 +799,47 @@ export function SiteUrlsPage({
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setManualOpen(false)} disabled={submittingManual}>
+            <Button type="button" variant="ghost" onClick={() => setManualOpen(false)} disabled={submittingManual}>
               Cancel
             </Button>
-            <Button onClick={handleManualSubmit} disabled={submittingManual || !manualUrlsInput.trim()}>
+            <Button type="button" onClick={handleManualSubmit} disabled={submittingManual || !manualUrlsInput.trim()}>
               <Send className="mr-1.5 size-3.5" />
               {submittingManual ? 'Submitting…' : 'Submit URLs'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmAction !== null} onOpenChange={(o) => !o && setConfirmAction(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmAction === 'reset' && 'Reset all URL statuses?'}
+              {confirmAction === 'prune' && `Remove ${counts?.removed ?? 0} URLs not in sitemap?`}
+              {confirmAction === 'deleteAll' && `Delete all ${counts?.total ?? 0} URLs?`}
+              {confirmAction === 'deleteSelected' && `Delete ${selected.size} selected URLs?`}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmAction === 'reset' && 'All URLs will be marked as new and will be re-submitted on next submit. This does not delete URLs.'}
+              {confirmAction === 'prune' && 'Deletes URLs whose status is removed (gone from sitemap since last sync). Cannot be undone without re-syncing.'}
+              {confirmAction === 'deleteAll' && 'Permanently deletes every URL for this site. Re-sync to re-import from sitemap.'}
+              {confirmAction === 'deleteSelected' && 'Permanently deletes the selected URLs. Re-sync to re-import them if still in sitemap.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setConfirmAction(null)} disabled={busy !== null}>Cancel</Button>
+            <Button
+              type="button"
+              variant={confirmAction === 'reset' ? 'default' : 'destructive'}
+              disabled={busy !== null}
+              onClick={() => {
+                if (confirmAction === 'reset') doReset()
+                else if (confirmAction === 'prune') doPrune()
+                else if (confirmAction === 'deleteAll') doDeleteAll()
+                else if (confirmAction === 'deleteSelected') doDeleteSelected()
+              }}
+            >
+              {busy ? 'Working…' : confirmAction === 'reset' ? 'Reset statuses' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
