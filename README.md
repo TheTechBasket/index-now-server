@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Docker image](https://img.shields.io/github/v/tag/TheTechBasket/index-now-server?label=ghcr.io&logo=docker&logoColor=white&color=2496ED)](https://github.com/TheTechBasket/index-now-server/pkgs/container/index-now-server)
 
 Self-hosted dashboard for managing [IndexNow](https://www.indexnow.org/) submissions across multiple sites. Handles keys, sitemaps, and submission scheduling from one place — pushes to Bing, Yandex, and every other participating engine via `api.indexnow.org`.
 
@@ -58,14 +59,35 @@ See [`.env.example`](.env.example) for all options. The SQLite database lives at
 
 ## Docker
 
+No clone needed — pulls the published image directly.
+
+**`docker run`**
+
 ```bash
+docker run -d \
+  --name indexnow-server \
+  --restart unless-stopped \
+  -p 3020:3020 \
+  -v indexnow-data:/app/data \
+  -e AUTH_SECRET=$(openssl rand -base64 32) \
+  -e ADMIN_EMAIL=admin@example.com \
+  -e ADMIN_PASSWORD=your-strong-password \
+  ghcr.io/thetechbasket/index-now-server:latest
+```
+
+**`docker compose`**
+
+```bash
+curl -O https://raw.githubusercontent.com/TheTechBasket/index-now-server/main/docker-compose.yml
 AUTH_SECRET=$(openssl rand -base64 32) \
   ADMIN_EMAIL=admin@example.com \
   ADMIN_PASSWORD=your-strong-password \
   docker compose up -d
 ```
 
-Open `http://your-server:3020` and sign in.
+Open `http://your-server:3020` and sign in. To skip the login gate entirely, drop the `AUTH_SECRET`/`ADMIN_*` vars and add `-e AUTH_ENABLED=false` (or `AUTH_ENABLED=false` before `docker compose up -d`).
+
+To build from source instead of pulling, clone the repo and edit `docker-compose.yml` per the comment at the top of the `indexnow-server` service.
 
 ## Stack
 
