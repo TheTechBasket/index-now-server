@@ -1,6 +1,8 @@
 services:
   indexnow-server:
-    build: .
+    image: ghcr.io/thetechbasket/index-now-server:latest
+    # building from source instead: comment out `image:` above, uncomment below
+    # build: .
     container_name: indexnow-server
     restart: unless-stopped
     ports:
