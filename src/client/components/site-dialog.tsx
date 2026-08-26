@@ -299,6 +299,7 @@ function CreateForm({ onOpenChange, onSaved }: Pick<Props, 'onOpenChange' | 'onS
 function EditForm({ site, onOpenChange, onSaved }: { site: Site } & Pick<Props, 'onOpenChange' | 'onSaved'>) {
   const [level, setLevel] = useState<Level>(site.submissionLevel)
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -342,11 +343,39 @@ function EditForm({ site, onOpenChange, onSaved }: { site: Site } & Pick<Props, 
       </div>
       <KeyField defaultValue={site.apiKey} />
       <ScheduleFields level={level} setLevel={setLevel} defaultInterval={site.cronInterval} />
-      <DialogFooter>
-        <Button type="submit" disabled={busy}>
-          Save changes
+      <div className="flex items-center justify-between border-t pt-4">
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={busy || deleting}
+          onClick={async () => {
+            if (!confirm(`Delete ${site.name}? This removes all its URLs and history and cannot be undone.`)) return
+            setDeleting(true)
+            try {
+              await api(`/sites/${site.id}`, { method: 'DELETE' })
+              toast.success('Site deleted')
+              onOpenChange(false)
+              onSaved()
+              // if on detail page, go home
+              if (window.location.pathname.startsWith(`/site/${site.id}`)) window.location.href = '/'
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Delete failed')
+            } finally {
+              setDeleting(false)
+            }
+          }}
+        >
+          {deleting ? 'Deleting…' : 'Delete site'}
         </Button>
-      </DialogFooter>
+        <div className="flex gap-2">
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={busy || deleting}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={busy || deleting}>
+            Save changes
+          </Button>
+        </div>
+      </div>
     </form>
   )
 }

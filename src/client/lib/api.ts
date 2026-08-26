@@ -47,9 +47,15 @@ export type KeyVerifyResult = {
   keyUrl: string
 }
 
+export type SitemapWarnings = { mismatchedCount: number; localCount: number; samples: string[] }
+
 export type SitemapSyncResult = UrlCounts & {
   sitemapCount: number
+  redirected?: boolean
+  finalUrl?: string
 }
+
+export type SyncError = { error: string; statusCode?: number; suggestedSitemap?: string; finalUrl?: string }
 
 export type Settings = {
   discordConfigured: boolean
@@ -64,8 +70,12 @@ export async function api<T = unknown>(path: string, init?: RequestInit): Promis
     ...init,
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => null)
-    throw new Error((body as { error?: string; message?: string })?.error ?? (body as { message?: string })?.message ?? `Request failed (${res.status})`)
+    const body = await res.json().catch(() => null) as { error?: string; message?: string; suggestedSitemap?: string; finalUrl?: string; statusCode?: number } | null
+    const err = new Error(body?.error ?? body?.message ?? `Request failed (${res.status})`) as Error & { suggestedSitemap?: string; finalUrl?: string; statusCode?: number }
+    if (body?.suggestedSitemap) err.suggestedSitemap = body.suggestedSitemap
+    if (body?.finalUrl) err.finalUrl = body.finalUrl
+    if (body?.statusCode) err.statusCode = body.statusCode
+    throw err
   }
   return res.json() as Promise<T>
 }

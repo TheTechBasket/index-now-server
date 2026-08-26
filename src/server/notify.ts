@@ -9,6 +9,9 @@ export type EventKey =
   | 'manual.error'
   | 'webhook.error'
   | 'key_verification.failed'
+  | 'sitemap.not_found'
+  | 'sitemap.redirect'
+  | 'sitemap.fetch_error'
 
 export const EVENT_KEYS: EventKey[] = [
   'schedule.success',
@@ -18,6 +21,9 @@ export const EVENT_KEYS: EventKey[] = [
   'manual.error',
   'webhook.error',
   'key_verification.failed',
+  'sitemap.not_found',
+  'sitemap.redirect',
+  'sitemap.fetch_error',
 ]
 
 const COLORS = { success: 0x22c55e, error: 0xef4444, neutral: 0x64748b }

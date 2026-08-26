@@ -4,6 +4,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semve
 
 ## [0.4.0] - 2026-08-26
 
+### Added
+- Delete-site action in the site edit dialog.
+- Sitemap redirect/not-found/fetch-error Discord notification events.
+- Sitemap host-mismatch and localhost-URL warnings, surfaced on the URL list page.
+
+### Changed
+- Bulk dashboard actions (submit/sync/verify) run sequentially with a small gap between sites instead of firing in parallel, avoiding rate-limit bursts.
+- `.env.example` trimmed to grouped, one-line comments per variable.
+
 ### Fixed
 - Docker build no longer silently succeeds on a failed `pnpm install`; install also skips the build-script approval gate on Alpine.
 - Removed dead 403/429 backoff branch in cron runner (unreachable, `runSubmission` never throws).

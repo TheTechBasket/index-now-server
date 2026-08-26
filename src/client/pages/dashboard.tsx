@@ -291,7 +291,8 @@ export function Dashboard() {
     setBulkBusy(action)
     let ok = 0
     let fail = 0
-    for (const site of sites) {
+    for (let i = 0; i < sites.length; i++) {
+      const site = sites[i]
       try {
         if (action === 'submit') {
           const r = await api<{ status: string }>(`/sites/${site.id}/submit`, { method: 'POST' })
@@ -308,6 +309,7 @@ export function Dashboard() {
       } catch {
         fail++
       }
+      if (sites.length > 1 && i < sites.length - 1) await new Promise((r) => setTimeout(r, 600))
     }
     setBulkBusy(null)
     const verb = action === 'submit' ? 'Submitted' : action === 'sync' ? 'Synced' : 'Verified'
