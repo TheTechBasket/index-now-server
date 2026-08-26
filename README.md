@@ -1,5 +1,6 @@
 # IndexNow Server
 
+[![Release](https://img.shields.io/github/v/release/TheTechBasket/index-now-server)](https://github.com/TheTechBasket/index-now-server/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![Docker image](https://img.shields.io/github/v/tag/TheTechBasket/index-now-server?label=ghcr.io&logo=docker&logoColor=white&color=2496ED)](https://github.com/TheTechBasket/index-now-server/pkgs/container/index-now-server)

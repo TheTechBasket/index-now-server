@@ -10,7 +10,7 @@ on:
         required: false
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -60,3 +60,14 @@ jobs:
           tags: ${{ steps.vars.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.vars.outputs.tag }}"
+          VERSION="${TAG#v}"
+          awk -v ver="$VERSION" '$0 ~ "^## \\[" ver "\\]" {flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > /tmp/release-notes.md
+          gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --notes-file /tmp/release-notes.md --latest \
+            || echo "release for $TAG may already exist, skipping"
