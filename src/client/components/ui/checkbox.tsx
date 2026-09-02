@@ -17,6 +17,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
 
     return (
       <span
+        data-slot="checkbox"
         className={cn(
           'relative inline-flex size-4 shrink-0 items-center justify-center rounded-sm border border-input text-primary shadow-sm',
           props.checked ? 'bg-primary border-primary' : 'bg-background',
@@ -30,7 +31,8 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         <input
           ref={localRef}
           type="checkbox"
-          className="absolute inset-0 m-0 cursor-pointer appearance-none opacity-0"
+          role="checkbox"
+          className="absolute inset-1/2 m-0 size-11 -translate-x-1/2 -translate-y-1/2 cursor-pointer appearance-none opacity-0"
           onChange={(e) => onCheckedChange?.(e.target.checked)}
           {...props}
         />

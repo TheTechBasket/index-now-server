@@ -1,3 +1,5 @@
+export type SitemapNode = { url: string; count: number; children?: SitemapNode[] }
+
 export type Site = {
   id: string
   name: string
@@ -8,12 +10,27 @@ export type Site = {
   cronInterval: 'hourly' | '6h' | 'daily' | 'weekly' | 'monthly'
   webhookSecret: string
   sitemapCount: number | null
+  sitemapChildren: SitemapNode[] | null
+  excludedSitemaps: string[]
   keyVerified: boolean | null
   keyVerifiedAt: string | null
   lastSyncAt: string | null
   createdAt: number
   lastSubmission: Submission | null
   urlCounts: UrlCounts
+  nextRunAt: string | null
+  mismatchedCount: number
+}
+
+export type CronProgress = {
+  interval: 'hourly' | '6h' | 'daily' | 'weekly' | 'monthly' | null
+  total: number
+  index: number
+  currentSiteId: string | null
+  currentSiteName: string | null
+  startedAt: string | null
+  batchIndex: number | null
+  batchTotal: number | null
 }
 
 export type UrlStatus = 'new' | 'updated' | 'submitted' | 'removed'
@@ -62,7 +79,25 @@ export type Settings = {
   events: string[]
   eventKeys: string[]
   webhookSecret: string | null
+  dryRun: boolean
+  devMode: boolean
 }
+
+export type GithubStats = {
+  stars: number
+  repoUrl: string
+  latestVersion: string | null
+  latestUrl: string | null
+  latestNotes: string | null
+  publishedAt: string | null
+  updateAvailable: boolean
+  checkedAt: string
+}
+
+export type ChangelogSection = { heading: string; items: string[] }
+export type ChangelogEntry = { version: string; date: string; sections: ChangelogSection[] }
+export type ChangelogFullEntry = { version: string; date: string; sections: ChangelogSection[] }
+export type ChangelogResponse = { version: string; curated: ChangelogEntry[]; full: ChangelogFullEntry[] }
 
 export async function api<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {

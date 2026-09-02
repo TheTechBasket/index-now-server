@@ -300,6 +300,23 @@ function EditForm({ site, onOpenChange, onSaved }: { site: Site } & Pick<Props, 
   const [level, setLevel] = useState<Level>(site.submissionLevel)
   const [busy, setBusy] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  async function doDelete() {
+    setDeleting(true)
+    try {
+      await api(`/sites/${site.id}`, { method: 'DELETE' })
+      toast.success('Site deleted')
+      setConfirmDelete(false)
+      onOpenChange(false)
+      onSaved()
+      if (window.location.pathname.startsWith(`/site/${site.id}`)) window.location.href = '/'
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -328,6 +345,7 @@ function EditForm({ site, onOpenChange, onSaved }: { site: Site } & Pick<Props, 
   }
 
   return (
+    <>
     <form onSubmit={onSubmit} className="grid gap-4">
       <div className="grid gap-2">
         <Label htmlFor="name">Name</Label>
@@ -348,22 +366,7 @@ function EditForm({ site, onOpenChange, onSaved }: { site: Site } & Pick<Props, 
           type="button"
           variant="destructive"
           disabled={busy || deleting}
-          onClick={async () => {
-            if (!confirm(`Delete ${site.name}? This removes all its URLs and history and cannot be undone.`)) return
-            setDeleting(true)
-            try {
-              await api(`/sites/${site.id}`, { method: 'DELETE' })
-              toast.success('Site deleted')
-              onOpenChange(false)
-              onSaved()
-              // if on detail page, go home
-              if (window.location.pathname.startsWith(`/site/${site.id}`)) window.location.href = '/'
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : 'Delete failed')
-            } finally {
-              setDeleting(false)
-            }
-          }}
+          onClick={() => setConfirmDelete(true)}
         >
           {deleting ? 'Deleting…' : 'Delete site'}
         </Button>
@@ -377,6 +380,23 @@ function EditForm({ site, onOpenChange, onSaved }: { site: Site } & Pick<Props, 
         </div>
       </div>
     </form>
+    <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete {site.name}?</DialogTitle>
+          <DialogDescription>This removes all its URLs and history and cannot be undone.</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button type="button" variant="destructive" onClick={doDelete} disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete site'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
 

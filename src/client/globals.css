@@ -81,6 +81,42 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Browser surfaces — theme what the browser draws by default          */
+/* ------------------------------------------------------------------ */
+
+::selection {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+* {
+  caret-color: var(--primary);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 999px;
+  border: 2px solid var(--background);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+  background-clip: padding-box;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ------------------------------------------------------------------ */
 /* Motion utilities                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -124,18 +160,34 @@
 /* Card hover lift — applied via .card-hover utility. */
 .card-hover {
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
-  will-change: transform;
 }
 .card-hover:hover {
+  will-change: transform;
   transform: translateY(-1px);
 }
 .card-hover:active {
   transform: translateY(0);
 }
 
-/* Respect reduced-motion globally — disables entrance/exit animations app-wide */
+/* Enlarge tap targets on touch input without changing the visual (mouse) size. */
+@media (pointer: coarse) {
+  [data-slot="button"][data-size^="icon"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Respect reduced-motion globally — disables entrance/exit animations app-wide.
+   .animate-attention is a state signal (errored badge), not decoration: give it a
+   static outline instead of a pulse so the cue survives with motion off. */
 @media (prefers-reduced-motion: reduce) {
-  *,
+  .animate-attention {
+    animation: none;
+    outline: 1.5px solid currentColor;
+    outline-offset: 1px;
+  }
+
+  *:not(.animate-attention),
   *::before,
   *::after {
     animation-duration: 0.01ms;

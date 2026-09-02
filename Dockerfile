@@ -32,6 +32,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/package.json ./
+# CHANGELOG.md feeds the in-app /changelog page (read by src/server/changelog.ts)
+COPY --from=builder /app/CHANGELOG.md ./
 COPY --from=builder /app/src/server ./src/server
 COPY --from=builder /app/tsconfig.json ./
 

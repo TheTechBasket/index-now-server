@@ -2,6 +2,29 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## [0.5.0] - 2026-09-02
+
+### Added
+- Cron next-run time + live progress banner for scheduled batches.
+- Sitemap explorer: child-sitemap list with URL counts, per-child include/exclude filter.
+- `DRY_RUN=true` dev flag (simulates IndexNow submit, sync still real) and a "DEV MODE" nav badge.
+- In-app Changelog page.
+- Bulk action progress counters ("Submitting 3/12").
+- Dashboard "mismatched" badge when sitemap URLs point at a different host.
+- GitHub stars and update-available indicator in the header (checked weekly).
+- Column visibility pickers on the dashboard and site URL tables.
+
+### Changed
+- Manual submit (dashboard, site page, bulk) now requires a verified IndexNow key. Webhook and scheduled runs are unchanged.
+- IndexNow 403/404 responses are retried like 429/5xx, with a status-specific error message when retries run out.
+- Delete confirmations use in-app dialogs instead of `window.confirm`.
+
+### Fixed
+- Dashboard `GET /sites`: 2N+1 queries down to 2, batched.
+- Sitemap/submission upserts batched (100-row chunks): 8.0s -> 3.6s sync on a 179k-URL site.
+- SQLite WAL checkpointed after bulk writes (was growing unbounded, slowing reads).
+- Oversized status badge in the dashboard table's Last Run column.
+
 ## [0.4.0] - 2026-08-26
 
 ### Added

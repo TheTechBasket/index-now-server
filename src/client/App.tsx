@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Toaster } from './components/ui/sonner'
 import { useSession } from './lib/auth'
+import { ChangelogPage } from './pages/changelog'
 import { Dashboard } from './pages/dashboard'
 import { Login } from './pages/login'
 import { NotFoundPage } from './pages/not-found'
@@ -75,6 +76,7 @@ export function App() {
   const siteMatch = route.match(/^\/site\/([^\/]+)$/)
   const isDashboard = route === '/' || route === ''
   const isSettings = route === '/settings'
+  const isChangelog = route === '/changelog'
 
   const page = siteSettingsMatch ? (
     <SiteUrlsPage key={siteSettingsMatch[1]} siteId={siteSettingsMatch[1]} initialEditOpen={true} />
@@ -82,6 +84,8 @@ export function App() {
     <SiteUrlsPage key={siteMatch[1]} siteId={siteMatch[1]} />
   ) : isSettings ? (
     <SettingsPage />
+  ) : isChangelog ? (
+    <ChangelogPage />
   ) : isDashboard ? (
     <Dashboard />
   ) : (

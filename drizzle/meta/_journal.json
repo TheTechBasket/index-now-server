@@ -43,6 +43,13 @@
       "when": 1786359469804,
       "tag": "0005_tricky_tana_nile",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788327135557,
+      "tag": "0006_thick_exiles",
+      "breakpoints": true
     }
   ]
 }

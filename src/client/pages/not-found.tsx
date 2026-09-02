@@ -5,7 +5,7 @@ import { FileQuestion, Home } from 'lucide-react'
 export function NotFoundPage() {
   return (
     <Layout>
-      <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="animate-enter flex flex-col items-center justify-center py-20 text-center">
         <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20">
           <FileQuestion className="size-8" />
         </div>

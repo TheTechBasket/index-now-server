@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql, type SQL } from 'drizzle-orm'
 import { XMLParser } from 'fast-xml-parser'
 import { c } from './auth.ts'
-import { db } from './db/index.ts'
+import { checkpoint, db } from './db/index.ts'
 import { sites, siteUrls, submissions } from './db/schema.ts'
 import { type EventKey, notify } from './notify.ts'
 
@@ -13,6 +13,13 @@ const BATCH_LIMIT = 10_000 // IndexNow max URLs per request
 const MAX_RETRIES = 3
 const BASE_BACKOFF_MS = 1_000
 
+// Dry-run: sitemap sync still hits the real site (read-only, safe), but the actual
+// IndexNow submission POST — the one thing that pushes data to a real external
+// service on the site's behalf — is skipped and simulated instead. For local dev
+// against real site configs without notifying search engines for real.
+export const DRY_RUN = process.env.DRY_RUN === 'true'
+if (DRY_RUN) console.warn(c.yellow('[indexnow] DRY_RUN=true — IndexNow submissions are simulated, nothing is sent to api.indexnow.org'))
+
 // Sitemap fetch tuning — env overridable, sequential gap prevents thundering herd
 const SITEMAP_MAX_RETRIES = Number(process.env.SITEMAP_MAX_RETRIES ?? 3)
 const SITEMAP_BASE_BACKOFF_MS = Number(process.env.SITEMAP_BASE_BACKOFF_MS ?? 1_500)
@@ -23,7 +30,8 @@ const parser = new XMLParser({
   removeNSPrefix: true,
 })
 
-export type SitemapEntry = { loc: string; lastmod: string | null }
+export type SitemapEntry = { loc: string; lastmod: string | null; path: string[] }
+export type SitemapNode = { url: string; count: number; children?: SitemapNode[] }
 
 export class SitemapFetchError extends Error {
   statusCode: number
@@ -39,6 +47,17 @@ export class SitemapFetchError extends Error {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
+}
+
+// Rows-per-statement for bulk upserts — one multi-row INSERT..ON CONFLICT per chunk
+// instead of one statement per row (large sites were doing 100k+ individual statements
+// per sync). Kept well under SQLite's default bound-parameter limit (999).
+const BULK_CHUNK = 100
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+  return out
 }
 
 function parseRetryAfterMs(header: string | null, fallbackMs: number): number {
@@ -101,7 +120,8 @@ async function fetchSitemapWithRetry(sitemapUrl: string): Promise<Response> {
 export async function fetchSitemapEntries(
   sitemapUrl: string,
   depth = 0,
-): Promise<{ entries: SitemapEntry[]; sitemapCount: number; finalUrl?: string; redirected?: boolean }> {
+  path: string[] = [],
+): Promise<{ entries: SitemapEntry[]; sitemapCount: number; tree?: SitemapNode[]; finalUrl?: string; redirected?: boolean }> {
   if (depth > 2) return { entries: [], sitemapCount: 0 }
   const res = await fetchSitemapWithRetry(sitemapUrl)
   const finalUrl = res.url ?? sitemapUrl
@@ -111,18 +131,19 @@ export async function fetchSitemapEntries(
   if (xml.sitemapindex?.sitemap) {
     const childSitemaps = [xml.sitemapindex.sitemap].flat()
     // Throttled child fetch: concurrency + gap avoids burst 403 on large indexes
-    const results: { entries: SitemapEntry[]; sitemapCount: number }[] = []
+    const results: { url: string; entries: SitemapEntry[]; tree?: SitemapNode[] }[] = []
     let idx = 0
     async function worker() {
       while (idx < childSitemaps.length) {
         const cur = idx++
         const s = childSitemaps[cur] as { loc?: unknown }
         if (!s?.loc) continue
+        const childUrl = String(s.loc)
         try {
-          const r = await fetchSitemapEntries(String(s.loc), depth + 1)
-          results.push(r)
+          const r = await fetchSitemapEntries(childUrl, depth + 1, [...path, childUrl])
+          results.push({ url: childUrl, entries: r.entries, tree: r.tree })
         } catch (err) {
-          console.warn(c.yellow(`[sitemap] child fetch failed ${String(s.loc)}: ${err instanceof Error ? err.message : String(err)}`))
+          console.warn(c.yellow(`[sitemap] child fetch failed ${childUrl}: ${err instanceof Error ? err.message : String(err)}`))
         }
         if (cur < childSitemaps.length - 1 && SITEMAP_CHILD_GAP_MS > 0) await sleep(SITEMAP_CHILD_GAP_MS)
       }
@@ -132,6 +153,7 @@ export async function fetchSitemapEntries(
     return {
       entries: results.flatMap((r) => r.entries),
       sitemapCount: depth === 0 ? childSitemaps.length : 0,
+      tree: results.map((r) => ({ url: r.url, count: r.entries.length, children: r.tree })),
       finalUrl,
       redirected,
     }
@@ -143,6 +165,7 @@ export async function fetchSitemapEntries(
       .map((u: { loc?: unknown; lastmod?: unknown }) => ({
         loc: String(u?.loc ?? ''),
         lastmod: u?.lastmod ? String(u.lastmod) : null,
+        path,
       }))
       .filter((e: SitemapEntry) => e.loc.startsWith('http')),
     sitemapCount: 1,
@@ -248,6 +271,64 @@ export function urlCounts(site: Site): Record<UrlStatus | 'total' | 'pending', n
   return counts
 }
 
+type UrlCounts = Record<UrlStatus | 'total' | 'pending', number>
+
+const EMPTY_COUNTS: UrlCounts = { new: 0, updated: 0, submitted: 0, removed: 0, total: 0, pending: 0 }
+
+/** Batched form of urlCounts() — one grouped query for all sites instead of one
+ * query per site (dashboard load was doing 2N+1 queries for N sites). */
+export function urlCountsForSites(siteIds: string[]): Map<string, UrlCounts> {
+  const result = new Map<string, UrlCounts>()
+  if (siteIds.length === 0) return result
+
+  const statusExprJoined = sql`CASE
+    WHEN ${siteUrls.lastSeenAt} IS NOT NULL AND ${siteUrls.lastSeenAt} < ${sites.lastSyncAt} THEN 'removed'
+    WHEN ${siteUrls.submittedAt} IS NULL THEN 'new'
+    WHEN ${siteUrls.lastmod} IS NOT NULL AND (${siteUrls.submittedLastmod} IS NULL OR ${siteUrls.submittedLastmod} != ${siteUrls.lastmod}) THEN 'updated'
+    ELSE 'submitted'
+  END` as SQL<UrlStatus>
+
+  const rows = db
+    .select({ siteId: siteUrls.siteId, status: statusExprJoined, n: sql<number>`count(*)` })
+    .from(siteUrls)
+    .innerJoin(sites, eq(sites.id, siteUrls.siteId))
+    .where(inArray(siteUrls.siteId, siteIds))
+    .groupBy(siteUrls.siteId, sql`2`)
+    .all()
+
+  for (const r of rows) {
+    const counts = result.get(r.siteId) ?? { ...EMPTY_COUNTS }
+    counts[r.status] = r.n
+    counts.total += r.n
+    counts.pending = counts.new + counts.updated
+    result.set(r.siteId, counts)
+  }
+  return result
+}
+
+/** Batched "last submission per site" — one query for max id per site, one for
+ * the rows, instead of one query per site. */
+export function latestSubmissionsForSites(siteIds: string[]): Map<string, typeof submissions.$inferSelect> {
+  const result = new Map<string, typeof submissions.$inferSelect>()
+  if (siteIds.length === 0) return result
+
+  const maxIds = db
+    .select({ siteId: submissions.siteId, maxId: sql<number>`max(${submissions.id})` })
+    .from(submissions)
+    .where(inArray(submissions.siteId, siteIds))
+    .groupBy(submissions.siteId)
+    .all()
+  if (maxIds.length === 0) return result
+
+  const rows = db
+    .select()
+    .from(submissions)
+    .where(inArray(submissions.id, maxIds.map((m) => m.maxId)))
+    .all()
+  for (const r of rows) result.set(r.siteId, r)
+  return result
+}
+
 // --- Host mismatch / sitemap guard helpers ---
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1'])
@@ -295,6 +376,34 @@ export function getSitemapWarnings(site: Site): SitemapWarnings {
     }
   }
   return { mismatchedCount, localCount, samples }
+}
+
+/** Cheap approximate mismatch count for all sites at once, for the dashboard badge.
+ * SQL prefix match instead of getSitemapWarnings' exact per-row `new URL()` parse -
+ * that's fine for one site's detail page but doing it for every site on every
+ * dashboard load would mean parsing every URL in the database on every load. This
+ * trades exactness (misses odd edge cases the real URL parser would catch) for one
+ * indexed-ish table scan; the detail page still shows the precise count + samples. */
+export function mismatchCountsForSites(siteIds: string[]): Map<string, number> {
+  const result = new Map<string, number>()
+  if (siteIds.length === 0) return result
+  const rows = db
+    .select({ siteId: siteUrls.siteId, n: sql<number>`count(*)` })
+    .from(siteUrls)
+    .innerJoin(sites, eq(sites.id, siteUrls.siteId))
+    .where(
+      and(
+        inArray(siteUrls.siteId, siteIds),
+        sql`${siteUrls.url} NOT LIKE ('http://' || ${sites.host} || '/%')
+          AND ${siteUrls.url} NOT LIKE ('https://' || ${sites.host} || '/%')
+          AND ${siteUrls.url} != ('http://' || ${sites.host})
+          AND ${siteUrls.url} != ('https://' || ${sites.host})`,
+      ),
+    )
+    .groupBy(siteUrls.siteId)
+    .all()
+  for (const r of rows) result.set(r.siteId, r.n)
+  return result
 }
 
 export function validateExplicitUrls(site: Site, urls: string[]): { valid: string[]; invalid: { url: string; reason: string }[] } {
@@ -389,12 +498,14 @@ export async function syncSitemap(
 ): Promise<ReturnType<typeof urlCounts> & { sitemapCount: number; redirected?: boolean; finalUrl?: string }> {
   let entries: SitemapEntry[]
   let sitemapCount: number
+  let tree: SitemapNode[] | undefined
   let finalUrl: string | undefined
   let redirected: boolean | undefined
   try {
     const result = await fetchSitemapEntries(site.sitemapUrl)
     entries = result.entries
     sitemapCount = result.sitemapCount
+    tree = result.tree
     finalUrl = result.finalUrl
     redirected = result.redirected
   } catch (err) {
@@ -426,30 +537,54 @@ export async function syncSitemap(
     console.warn(c.yellow(`[sitemap] ${detail}`))
   }
 
+  const excluded = new Set(site.excludedSitemaps ?? [])
+  const inScope = excluded.size > 0 ? entries.filter((e) => !e.path.some((p) => excluded.has(p))) : entries
   const now = new Date()
-  const dedup = new Map(entries.map((e) => [e.loc, e.lastmod]))
+  const dedup = new Map(inScope.map((e) => [e.loc, e.lastmod]))
+  const rows = [...dedup].map(([url, lastmod]) => ({ siteId: site.id, url, lastmod, firstSeenAt: now, lastSeenAt: now }))
   db.transaction((tx) => {
-    for (const [url, lastmod] of dedup) {
+    for (const batch of chunk(rows, BULK_CHUNK)) {
       tx.insert(siteUrls)
-        .values({ siteId: site.id, url, lastmod, firstSeenAt: now, lastSeenAt: now })
+        .values(batch)
         .onConflictDoUpdate({
           target: [siteUrls.siteId, siteUrls.url],
-          set: { lastSeenAt: now, lastmod },
+          set: { lastSeenAt: now, lastmod: sql`excluded.lastmod` },
         })
         .run()
     }
-    tx.update(sites).set({ lastSyncAt: now, sitemapCount }).where(eq(sites.id, site.id)).run()
+    tx.update(sites).set({ lastSyncAt: now, sitemapCount, sitemapChildren: tree ?? null }).where(eq(sites.id, site.id)).run()
   })
+  checkpoint()
   const fresh = { ...site, lastSyncAt: now, sitemapCount }
   return { ...urlCounts(fresh), sitemapCount, redirected, finalUrl }
 }
 
+// Status codes IndexNow can return where a transient cause (WAF hiccup, propagation delay,
+// brief outage) is plausible enough to retry. 400/422 (bad request / URL-host mismatch) are
+// not here — retrying the same malformed request never helps.
+const RETRYABLE_STATUSES = new Set([403, 404, 429])
+
+function submitStatusDetail(status: number, host: string, apiKey: string): string {
+  if (status === 403) return `IndexNow rejected the key (403) — check the key file is deployed at https://${host}/${apiKey}.txt`
+  if (status === 404) return 'IndexNow endpoint not found (404) — check network/DNS to api.indexnow.org'
+  if (status === 429) return 'Rate limited by IndexNow (429) — retries exhausted'
+  if (status >= 500) return `IndexNow server error (${status}) — retries exhausted`
+  return `IndexNow responded ${status}`
+}
+
 /**
  * Submit one batch to api.indexnow.org with retry + exponential backoff.
- * Respects Retry-After headers when present.
+ * Respects Retry-After headers when present. 403/404/429/5xx are all retried (each can be
+ * transient — a WAF hiccup, propagation delay after deploying the key, a brief outage) before
+ * giving up with a status-specific, actionable error.
  * Returns HTTP status (200/202 = accepted).
  */
 async function submitBatch(site: Site, urlList: string[]): Promise<number> {
+  if (DRY_RUN) {
+    console.log(c.cyan(`[dry-run] Would submit ${urlList.length} URL(s) for ${site.name} to IndexNow — skipped`))
+    return 202
+  }
+
   let lastError: Error | null = null
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -464,8 +599,7 @@ async function submitBatch(site: Site, urlList: string[]): Promise<number> {
       // Success — accept 200 or 202
       if (res.ok || res.status === 202) return res.status
 
-      // Rate limited or server error — retry with backoff
-      if (res.status === 429 || res.status >= 500) {
+      if (RETRYABLE_STATUSES.has(res.status) || res.status >= 500) {
         // Parse Retry-After header (seconds or HTTP-date)
         const retryAfter = res.headers.get('retry-after')
         let waitMs = BASE_BACKOFF_MS * Math.pow(2, attempt) + Math.random() * 500
@@ -475,18 +609,20 @@ async function submitBatch(site: Site, urlList: string[]): Promise<number> {
             waitMs = Math.min(parsed * 1000, 60_000) // cap at 60s
           }
         }
-        lastError = new Error(`IndexNow responded ${res.status}, retry after ${waitMs}ms`)
+        lastError = new Error(submitStatusDetail(res.status, site.host, site.apiKey))
         if (attempt < MAX_RETRIES) {
-          console.warn(c.yellow(`[submitBatch] ${lastError.message} (attempt ${attempt + 1}/${MAX_RETRIES + 1})`))
+          console.warn(c.yellow(`[submitBatch] HTTP ${res.status} for ${site.name}, retry ${attempt + 1}/${MAX_RETRIES + 1} after ${waitMs}ms`))
           await new Promise((r) => setTimeout(r, waitMs))
           continue
         }
+        throw lastError
       }
 
-      // Non-retryable status
-      throw new Error(`IndexNow responded ${res.status}`)
+      // Non-retryable status (400 bad request, 422 URL/host mismatch, ...)
+      lastError = new Error(submitStatusDetail(res.status, site.host, site.apiKey))
+      throw lastError
     } catch (err) {
-      if (err instanceof Error && err.message.startsWith('IndexNow responded')) throw err
+      if (err === lastError) throw err
       lastError = err instanceof Error ? err : new Error(String(err))
       if (attempt < MAX_RETRIES) {
         const waitMs = BASE_BACKOFF_MS * Math.pow(2, attempt) + Math.random() * 500
@@ -507,7 +643,12 @@ export type RunResult = { status: 'success' | 'no_changes' | 'error'; urlCount: 
  * Run a submission: sync the sitemap, then submit pending URLs (new + updated).
  * Webhook calls may pass explicit URLs, which are submitted as-is.
  */
-export async function runSubmission(site: Site, trigger: Trigger, explicitUrls?: string[]): Promise<RunResult> {
+export async function runSubmission(
+  site: Site,
+  trigger: Trigger,
+  explicitUrls?: string[],
+  onBatch?: (batchIndex: number, batchTotal: number) => void,
+): Promise<RunResult> {
   const prefix = eventPrefix[trigger]
   try {
     let pending: { url: string; lastmod: string | null }[]
@@ -537,13 +678,15 @@ export async function runSubmission(site: Site, trigger: Trigger, explicitUrls?:
 
     const now = new Date()
     let lastStatus = 0
+    const batchTotal = Math.ceil(pending.length / BATCH_LIMIT)
     for (let i = 0; i < pending.length; i += BATCH_LIMIT) {
+      onBatch?.(i / BATCH_LIMIT + 1, batchTotal)
       const batch = pending.slice(i, i + BATCH_LIMIT)
       lastStatus = await submitBatch(site, batch.map((p) => p.url))
       db.transaction((tx) => {
-        for (const { url, lastmod } of batch) {
+        for (const rows of chunk(batch, BULK_CHUNK)) {
           tx.insert(siteUrls)
-            .values({ siteId: site.id, url, lastmod, submittedAt: now, submittedLastmod: lastmod, statusCode: lastStatus })
+            .values(rows.map(({ url, lastmod }) => ({ siteId: site.id, url, lastmod, submittedAt: now, submittedLastmod: lastmod, statusCode: lastStatus })))
             .onConflictDoUpdate({
               target: [siteUrls.siteId, siteUrls.url],
               set: { submittedAt: now, submittedLastmod: sql`${siteUrls.lastmod}`, statusCode: lastStatus },
@@ -553,17 +696,18 @@ export async function runSubmission(site: Site, trigger: Trigger, explicitUrls?:
       })
     }
 
+    const detail = DRY_RUN ? `DRY RUN: HTTP ${lastStatus} (simulated)` : `HTTP ${lastStatus}`
     db.insert(submissions)
-      .values({ siteId: site.id, trigger, urlCount: pending.length, status: 'success', detail: `HTTP ${lastStatus}` })
+      .values({ siteId: site.id, trigger, urlCount: pending.length, status: 'success', detail })
       .run()
-    if (trigger !== 'webhook') {
+    if (trigger !== 'webhook' && !DRY_RUN) {
       await notify(`${prefix}.success` as EventKey, {
         site: site.name,
         urlCount: pending.length,
         statusCode: lastStatus,
       })
     }
-    return { status: 'success', urlCount: pending.length, detail: `HTTP ${lastStatus}` }
+    return { status: 'success', urlCount: pending.length, detail }
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
     db.insert(submissions).values({ siteId: site.id, trigger, urlCount: 0, status: 'error', detail }).run()

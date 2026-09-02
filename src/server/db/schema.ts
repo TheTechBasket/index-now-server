@@ -4,6 +4,8 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
 // No user_id anywhere — auth is a simple env gate, so data never belongs to a
 // specific user. Changing ADMIN_EMAIL/.env keeps all your sites and URLs.
 
+export type SitemapNode = { url: string; count: number; children?: SitemapNode[] }
+
 export const sites = sqliteTable('sites', {
   id: text('id')
     .primaryKey()
@@ -19,6 +21,11 @@ export const sites = sqliteTable('sites', {
     .notNull()
     .default('daily'),
   sitemapCount: integer('sitemap_count'),
+  // Child sitemaps found the last time this site's sitemap (index) was synced.
+  // Empty/null for a flat (non-index) sitemap.
+  sitemapChildren: text('sitemap_children', { mode: 'json' }).$type<SitemapNode[]>(),
+  // Child sitemap URLs the user has opted out of (their URLs are skipped on sync/submit).
+  excludedSitemaps: text('excluded_sitemaps', { mode: 'json' }).$type<string[]>().notNull().default([]),
   keyVerified: integer('key_verified', { mode: 'boolean' }).default(false),
   keyVerifiedAt: integer('key_verified_at', { mode: 'timestamp' }),
   lastSyncAt: integer('last_sync_at', { mode: 'timestamp' }),

@@ -21,6 +21,71 @@ const BACKOFF_403_MS = Number(process.env.CRON_BACKOFF_403_MS ?? 10_000)
 // Global guard so hourly vs daily ticks never overlap
 let running: string | null = null
 
+export type CronProgress = {
+  interval: keyof typeof SCHEDULES | null
+  total: number
+  index: number
+  currentSiteId: string | null
+  currentSiteName: string | null
+  startedAt: string | null
+  batchIndex: number | null
+  batchTotal: number | null
+}
+
+const IDLE_PROGRESS: CronProgress = {
+  interval: null,
+  total: 0,
+  index: 0,
+  currentSiteId: null,
+  currentSiteName: null,
+  startedAt: null,
+  batchIndex: null,
+  batchTotal: null,
+}
+
+let progress: CronProgress = { ...IDLE_PROGRESS }
+
+export function getCronProgress(): CronProgress {
+  return { ...progress }
+}
+
+/** Next fire time for a fixed cron preset — the presets never change, so this is
+ * computed directly instead of pulling in a cron-expression parser dependency. */
+export function nextRunFor(interval: keyof typeof SCHEDULES, from: Date = new Date()): Date {
+  const d = new Date(from)
+  d.setSeconds(0, 0)
+  switch (interval) {
+    case 'hourly':
+      d.setMinutes(0)
+      d.setHours(d.getHours() + 1)
+      return d
+    case '6h': {
+      d.setMinutes(0)
+      d.setHours(Math.ceil((d.getHours() + 1) / 6) * 6)
+      return d
+    }
+    case 'daily':
+      d.setHours(3, 0, 0, 0)
+      if (d <= from) d.setDate(d.getDate() + 1)
+      return d
+    case 'weekly': {
+      d.setHours(3, 0, 0, 0)
+      let addDays = (7 - d.getDay()) % 7
+      if (addDays === 0 && d <= from) addDays = 7
+      d.setDate(d.getDate() + addDays)
+      return d
+    }
+    case 'monthly':
+      d.setDate(1)
+      d.setHours(3, 0, 0, 0)
+      if (d <= from) {
+        d.setMonth(d.getMonth() + 1)
+        d.setDate(1)
+      }
+      return d
+  }
+}
+
 function hashJitter(id: string, max: number): number {
   let h = 0
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
@@ -41,7 +106,10 @@ export function startCron() {
       running = interval
       runScheduledForInterval(interval)
         .catch((err) => console.error(c.red(`[cron] ${interval} run failed:`), err))
-        .finally(() => { running = null })
+        .finally(() => {
+          running = null
+          progress = { ...IDLE_PROGRESS }
+        })
     })
   }
 }
@@ -65,6 +133,17 @@ async function runScheduledForInterval(interval: keyof typeof SCHEDULES) {
 
   console.log(`[cron] Processing ${sorted.length} sites for interval "${interval}" (gap ${INTER_SITE_DELAY_MS}ms + jitter ≤${JITTER_MAX_MS}ms)`)
 
+  progress = {
+    interval,
+    total: sorted.length,
+    index: 0,
+    currentSiteId: null,
+    currentSiteName: null,
+    startedAt: new Date().toISOString(),
+    batchIndex: null,
+    batchTotal: null,
+  }
+
   let penaltyMs = 0
 
   for (let i = 0; i < sorted.length; i++) {
@@ -78,9 +157,12 @@ async function runScheduledForInterval(interval: keyof typeof SCHEDULES) {
       await sleep(jitter)
     }
 
+    progress = { ...progress, index: i + 1, currentSiteId: site.id, currentSiteName: site.name, batchIndex: null, batchTotal: null }
     console.log(`[cron] Submitting ${site.name}...`)
     try {
-      const result = await runSubmission(site, 'scheduled')
+      const result = await runSubmission(site, 'scheduled', undefined, (batchIndex, batchTotal) => {
+        progress = { ...progress, batchIndex, batchTotal }
+      })
       console.log(`[cron] ${site.name}: ${result.status} (${result.urlCount} URLs)`)
       // decay penalty on success
       if (penaltyMs > 0) penaltyMs = Math.max(0, penaltyMs - 1_000)

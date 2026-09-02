@@ -2,8 +2,10 @@ import {
   AlertTriangle,
   ArrowLeft,
   ChevronRight,
+  Columns3,
   Copy,
   ExternalLink,
+  FileStack,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -31,8 +33,10 @@ import {
 } from '@/components/ui/dialog'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -54,9 +58,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { api, type KeyVerifyResult, type Site, type SiteUrl, type SitemapSyncResult, type SitemapWarnings, type UrlCounts, type UrlStatus } from '@/lib/api'
+import { api, type KeyVerifyResult, type Site, type SitemapNode, type SiteUrl, type SitemapSyncResult, type SitemapWarnings, type UrlCounts, type UrlStatus } from '@/lib/api'
 
 const PAGE = 100
+
+type ColumnKey = 'lastmod' | 'lastSeen' | 'lastSubmitted'
+const COLUMN_LABELS: Record<ColumnKey, string> = {
+  lastmod: 'Sitemap Lastmod',
+  lastSeen: 'Last Seen',
+  lastSubmitted: 'Last Submitted',
+}
+const COLS_KEY = 'indexnow.siteurls.columns'
+const DEFAULT_COLS: Record<ColumnKey, boolean> = { lastmod: true, lastSeen: true, lastSubmitted: true }
+
+function loadCols(): Record<ColumnKey, boolean> {
+  try {
+    const raw = localStorage.getItem(COLS_KEY)
+    return raw ? { ...DEFAULT_COLS, ...JSON.parse(raw) } : DEFAULT_COLS
+  } catch {
+    return DEFAULT_COLS
+  }
+}
 
 const statusVariant: Record<UrlStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   new: 'default',
@@ -73,6 +95,45 @@ function copy(text: string, label: string) {
   navigator.clipboard.writeText(text).then(
     () => toast.success(`${label} copied`),
     () => toast.error('Clipboard unavailable'),
+  )
+}
+
+function SitemapTreeRow({
+  node,
+  depth,
+  excludedSitemaps,
+  savingScope,
+  onToggle,
+}: {
+  node: SitemapNode
+  depth: number
+  excludedSitemaps: string[]
+  savingScope: boolean
+  onToggle: (url: string) => void
+}) {
+  const excluded = excludedSitemaps.includes(node.url)
+  return (
+    <li>
+      <div className="flex items-center gap-2" style={{ paddingLeft: depth * 16 }}>
+        <Checkbox
+          checked={!excluded}
+          disabled={savingScope}
+          onCheckedChange={() => onToggle(node.url)}
+          aria-label={`Include ${node.url}`}
+        />
+        <span className={`truncate font-mono text-[11px] ${excluded ? 'text-muted-foreground/50 line-through' : 'text-muted-foreground'}`} title={node.url}>
+          {node.url}
+        </span>
+        <span className="ml-auto shrink-0 text-muted-foreground/70">{node.count} URLs</span>
+      </div>
+      {node.children && node.children.length > 0 && (
+        <ul className="mt-1.5 space-y-1.5">
+          {node.children.map((child) => (
+            <SitemapTreeRow key={child.url} node={child} depth={depth + 1} excludedSitemaps={excludedSitemaps} savingScope={savingScope} onToggle={onToggle} />
+          ))}
+        </ul>
+      )}
+    </li>
   )
 }
 
@@ -100,9 +161,21 @@ export function SiteUrlsPage({
   const [manualUrlsInput, setManualUrlsInput] = useState('')
   const [submittingManual, setSubmittingManual] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
-  const [confirmAction, setConfirmAction] = useState<'reset' | 'prune' | 'deleteAll' | 'deleteSelected' | null>(null)
+  const [confirmAction, setConfirmAction] = useState<'reset' | 'prune' | 'deleteAll' | 'deleteSelected' | 'deleteRow' | null>(null)
+  const [deleteRowTarget, setDeleteRowTarget] = useState<SiteUrl | null>(null)
   const [syncError, setSyncError] = useState<{ message: string; suggestedSitemap?: string; finalUrl?: string } | null>(null)
   const [redirectInfo, setRedirectInfo] = useState<{ from: string; to: string } | null>(null)
+  const [scopeOpen, setScopeOpen] = useState(false)
+  const [savingScope, setSavingScope] = useState(false)
+  const [visibleCols, setVisibleCols] = useState<Record<ColumnKey, boolean>>(loadCols)
+
+  useEffect(() => {
+    localStorage.setItem(COLS_KEY, JSON.stringify(visibleCols))
+  }, [visibleCols])
+
+  function toggleCol(key: ColumnKey) {
+    setVisibleCols((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
 
   const loadSite = useCallback(() => {
     api<Site[]>('/sites')
@@ -312,6 +385,22 @@ export function SiteUrlsPage({
     }
   }
 
+  async function doDeleteRow() {
+    if (!deleteRowTarget) return
+    setBusy('deleteSelected')
+    try {
+      await api(`/sites/${siteId}/urls/bulk-delete`, { method: 'POST', body: JSON.stringify({ ids: [deleteRowTarget.id] }) })
+      toast.success('URL deleted')
+      setConfirmAction(null)
+      setDeleteRowTarget(null)
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function verifyKey() {
     setKeyStatus('checking')
     try {
@@ -326,6 +415,27 @@ export function SiteUrlsPage({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Verification failed')
       setKeyStatus('missing')
+    }
+  }
+
+  async function toggleSitemapScope(childUrl: string) {
+    if (!site) return
+    const next = site.excludedSitemaps.includes(childUrl)
+      ? site.excludedSitemaps.filter((u) => u !== childUrl)
+      : [...site.excludedSitemaps, childUrl]
+    setSavingScope(true)
+    try {
+      // Endpoint returns the bare sites row (no urlCounts/lastSubmission/nextRunAt), so merge instead of replacing.
+      const updated = await api<Pick<Site, 'excludedSitemaps'>>(`/sites/${siteId}/sitemap-scope`, {
+        method: 'POST',
+        body: JSON.stringify({ excludedSitemaps: next }),
+      })
+      setSite((prev) => (prev ? { ...prev, excludedSitemaps: updated.excludedSitemaps } : prev))
+      toast.success('Sitemap scope updated, re-sync to apply')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Update failed')
+    } finally {
+      setSavingScope(false)
     }
   }
 
@@ -423,6 +533,13 @@ export function SiteUrlsPage({
             {busy === 'sync' ? 'Syncing…' : 'Sync Sitemap'}
           </Button>
 
+          {site && (
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setScopeOpen(true)}>
+              <FileStack className="size-3.5" />
+              {site.sitemapChildren && site.sitemapChildren.length > 0 ? `Sitemaps (${site.sitemapChildren.length})` : 'Sitemap'}
+            </Button>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button type="button" variant="outline" size="sm" className="gap-1.5">
@@ -450,7 +567,14 @@ export function SiteUrlsPage({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button type="button" onClick={submitPending} disabled={busy !== null || !counts?.pending} size="sm" className="gap-1.5">
+          <Button
+            type="button"
+            onClick={submitPending}
+            disabled={busy !== null || !counts?.pending || !site?.keyVerified}
+            title={!site?.keyVerified ? 'Verify the IndexNow key before submitting' : undefined}
+            size="sm"
+            className="gap-1.5"
+          >
             <Send className="size-3.5" aria-hidden />
             {busy === 'submit' ? 'Submitting…' : `Submit Pending${counts?.pending ? ` (${counts.pending})` : ''}`}
           </Button>
@@ -531,6 +655,7 @@ export function SiteUrlsPage({
               setPage(0)
             }}
             placeholder="Search URLs..."
+            aria-label="Search URLs"
             className="h-8 w-64 text-xs"
           />
           <Select
@@ -551,6 +676,28 @@ export function SiteUrlsPage({
               <SelectItem value="removed">Removed</SelectItem>
             </SelectContent>
           </Select>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" size="icon-sm" variant="ghost" aria-label="Choose visible columns" title="Choose visible columns">
+                <Columns3 aria-hidden className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel className="text-xs">Visible columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {(Object.keys(COLUMN_LABELS) as ColumnKey[]).map((key) => (
+                <DropdownMenuCheckboxItem
+                  key={key}
+                  checked={visibleCols[key]}
+                  onCheckedChange={() => toggleCol(key)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {COLUMN_LABELS[key]}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {counts && (
@@ -641,17 +788,21 @@ export function SiteUrlsPage({
               </TableHead>
               <TableHead className="w-[55%]">URL</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Sitemap Lastmod</TableHead>
-              <TableHead>Last Seen</TableHead>
-              <TableHead>Last Submitted</TableHead>
+              {visibleCols.lastmod && <TableHead>Sitemap Lastmod</TableHead>}
+              {visibleCols.lastSeen && <TableHead>Last Seen</TableHead>}
+              {visibleCols.lastSubmitted && <TableHead>Last Submitted</TableHead>}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
-                  {counts?.total === 0 ? 'No URLs found. Click "Sync Sitemap" to index pages.' : 'No URLs match your search filters.'}
+                <TableCell colSpan={4 + Object.values(visibleCols).filter(Boolean).length} className="py-12 text-center text-sm text-muted-foreground">
+                  {counts === null
+                    ? 'Loading URLs…'
+                    : counts.total === 0
+                      ? 'No URLs found. Click "Sync Sitemap" to index pages.'
+                      : 'No URLs match your search filters.'}
                 </TableCell>
               </TableRow>
             )}
@@ -670,15 +821,21 @@ export function SiteUrlsPage({
                     {row.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                  {row.lastmod ?? '—'}
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                  {fmt(row.lastSeenAt)}
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                  {fmt(row.submittedAt)}
-                </TableCell>
+                {visibleCols.lastmod && (
+                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                    {row.lastmod ?? '—'}
+                  </TableCell>
+                )}
+                {visibleCols.lastSeen && (
+                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                    {fmt(row.lastSeenAt)}
+                  </TableCell>
+                )}
+                {visibleCols.lastSubmitted && (
+                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                    {fmt(row.submittedAt)}
+                  </TableCell>
+                )}
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button
@@ -717,15 +874,9 @@ export function SiteUrlsPage({
                       type="button"
                       size="icon"
                       variant="ghost"
-                      onClick={async () => {
-                        if (!window.confirm(`Delete ${row.url}?`)) return
-                        try {
-                          await api(`/sites/${siteId}/urls/bulk-delete`, { method: 'POST', body: JSON.stringify({ ids: [row.id] }) })
-                          toast.success('URL deleted')
-                          load()
-                        } catch (err) {
-                          toast.error(err instanceof Error ? err.message : 'Delete failed')
-                        }
+                      onClick={() => {
+                        setDeleteRowTarget(row)
+                        setConfirmAction('deleteRow')
                       }}
                       title="Delete URL"
                       className="h-7 w-7 text-destructive hover:bg-destructive/10"
@@ -810,7 +961,7 @@ export function SiteUrlsPage({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmAction !== null} onOpenChange={(o) => !o && setConfirmAction(null)}>
+      <Dialog open={confirmAction !== null} onOpenChange={(o) => { if (!o) { setConfirmAction(null); setDeleteRowTarget(null) } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -818,16 +969,20 @@ export function SiteUrlsPage({
               {confirmAction === 'prune' && `Remove ${counts?.removed ?? 0} URLs not in sitemap?`}
               {confirmAction === 'deleteAll' && `Delete all ${counts?.total ?? 0} URLs?`}
               {confirmAction === 'deleteSelected' && `Delete ${selected.size} selected URLs?`}
+              {confirmAction === 'deleteRow' && `Delete this URL?`}
             </DialogTitle>
             <DialogDescription>
               {confirmAction === 'reset' && 'All URLs will be marked as new and will be re-submitted on next submit. This does not delete URLs.'}
               {confirmAction === 'prune' && 'Deletes URLs whose status is removed (gone from sitemap since last sync). Cannot be undone without re-syncing.'}
               {confirmAction === 'deleteAll' && 'Permanently deletes every URL for this site. Re-sync to re-import from sitemap.'}
               {confirmAction === 'deleteSelected' && 'Permanently deletes the selected URLs. Re-sync to re-import them if still in sitemap.'}
+              {confirmAction === 'deleteRow' && (
+                <span className="break-all font-mono text-[11px]">{deleteRowTarget?.url}</span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setConfirmAction(null)} disabled={busy !== null}>Cancel</Button>
+            <Button type="button" variant="ghost" onClick={() => { setConfirmAction(null); setDeleteRowTarget(null) }} disabled={busy !== null}>Cancel</Button>
             <Button
               type="button"
               variant={confirmAction === 'reset' ? 'default' : 'destructive'}
@@ -837,11 +992,46 @@ export function SiteUrlsPage({
                 else if (confirmAction === 'prune') doPrune()
                 else if (confirmAction === 'deleteAll') doDeleteAll()
                 else if (confirmAction === 'deleteSelected') doDeleteSelected()
+                else if (confirmAction === 'deleteRow') doDeleteRow()
               }}
             >
               {busy ? 'Working…' : confirmAction === 'reset' ? 'Reset statuses' : 'Delete'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={scopeOpen} onOpenChange={setScopeOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-1.5">
+              <FileStack className="size-4" /> Sitemap
+            </DialogTitle>
+            <DialogDescription className="break-all font-mono text-[11px]">{site?.sitemapUrl}</DialogDescription>
+          </DialogHeader>
+          {site?.sitemapChildren && site.sitemapChildren.length > 0 ? (
+            <div className="text-xs">
+              <p className="mb-2 text-muted-foreground">
+                Uncheck a sitemap to exclude it (and anything nested under it) from the next sync/submit.
+              </p>
+              <ul className="max-h-80 space-y-1.5 overflow-y-auto">
+                {site.sitemapChildren.map((child) => (
+                  <SitemapTreeRow
+                    key={child.url}
+                    node={child}
+                    depth={0}
+                    excludedSitemaps={site.excludedSitemaps}
+                    savingScope={savingScope}
+                    onToggle={toggleSitemapScope}
+                  />
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              This sitemap is not a sitemap index (no child sitemaps found), nothing to filter.
+            </p>
+          )}
         </DialogContent>
       </Dialog>
 

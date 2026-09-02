@@ -103,7 +103,23 @@ export function SettingsPage() {
     }
   }
 
-  if (!settings) return <Layout>{null}</Layout>
+  if (!settings) {
+    return (
+      <Layout>
+        <div className="mb-6">
+          <div className="skeleton mb-2 h-6 w-48 rounded-md" />
+          <div className="skeleton h-4 w-72 rounded-md" style={{ animationDelay: '60ms' }} />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="skeleton h-64 rounded-xl ring-1 ring-foreground/10" />
+          <div className="grid gap-6">
+            <div className="skeleton h-40 rounded-xl ring-1 ring-foreground/10" style={{ animationDelay: '60ms' }} />
+            <div className="skeleton h-40 rounded-xl ring-1 ring-foreground/10" style={{ animationDelay: '120ms' }} />
+          </div>
+        </div>
+      </Layout>
+    )
+  }
 
   const curlExample = `curl -X POST "${window.location.origin}/hook/<SITE_ID>" \\
   -H "X-Webhook-Secret: ${settings.webhookSecret ?? '<SECRET>'}" \\
@@ -150,6 +166,7 @@ export function SettingsPage() {
                         variant="outline"
                         onClick={() => copy(settings.webhookSecret!, 'Webhook secret')}
                         title="Copy secret"
+                        aria-label="Copy secret"
                       >
                         <Copy className="size-4" />
                       </Button>

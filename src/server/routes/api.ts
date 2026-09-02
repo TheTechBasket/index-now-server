@@ -8,7 +8,10 @@ import {
   deleteAllUrls,
   deleteUrlsByIds,
   discoverSitemaps,
+  DRY_RUN,
   getSitemapWarnings,
+  latestSubmissionsForSites,
+  mismatchCountsForSites,
   pruneRemovedUrls,
   resetUrlStatuses,
   runSubmission,
@@ -17,10 +20,15 @@ import {
   syncSitemap,
   URL_STATUSES,
   urlCounts,
+  urlCountsForSites,
   validateExplicitUrls,
   verifyKeyDeployment,
 } from '../indexnow.ts'
 import { EVENT_KEYS, sendDiscord } from '../notify.ts'
+import { getCronProgress, nextRunFor } from '../cron.ts'
+import { curatedChangelog, readChangelog } from '../changelog.ts'
+import { getGithubStats } from '../github.ts'
+import { appVersion } from '../version.ts'
 
 const siteBody = {
   type: 'object',
@@ -47,17 +55,32 @@ export async function apiRoutes(app: FastifyInstance) {
 
   app.get('/sites', async () => {
     const all = db.select().from(sites).all()
-    return all.map((site) => {
-      const last = db
-        .select()
-        .from(submissions)
-        .where(eq(submissions.siteId, site.id))
-        .orderBy(desc(submissions.createdAt))
-        .limit(1)
-        .get()
-      return { ...site, lastSubmission: last ?? null, urlCounts: urlCounts(site) }
-    })
+    const ids = all.map((s) => s.id)
+    const lastBySite = latestSubmissionsForSites(ids)
+    const countsBySite = urlCountsForSites(ids)
+    const mismatchBySite = mismatchCountsForSites(ids)
+    return all.map((site) => ({
+      ...site,
+      lastSubmission: lastBySite.get(site.id) ?? null,
+      urlCounts: countsBySite.get(site.id) ?? { new: 0, updated: 0, submitted: 0, removed: 0, total: 0, pending: 0 },
+      nextRunAt: site.submissionLevel === 'scheduled' ? nextRunFor(site.cronInterval) : null,
+      mismatchedCount: mismatchBySite.get(site.id) ?? 0,
+    }))
   })
+
+  app.get('/cron/status', async () => getCronProgress())
+
+  // --- Version & changelog ---
+
+  app.get('/version', async () => ({ version: appVersion }))
+
+  app.get('/github-stats', async () => getGithubStats())
+
+  app.get('/changelog', async () => ({
+    version: appVersion,
+    curated: curatedChangelog(),
+    full: readChangelog(),
+  }))
 
   app.post(
     '/sites',
@@ -134,6 +157,9 @@ export async function apiRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string }
     const site = db.select().from(sites).where(eq(sites.id, id)).get()
     if (!site) return reply.code(404).send({ error: 'Site not found' })
+    if (!site.keyVerified) {
+      return reply.code(400).send({ error: 'IndexNow key is not verified for this site. Verify the key before submitting.' })
+    }
     const body = req.body as { urls?: string[] } | undefined
     if (body?.urls?.length) {
       const v = validateExplicitUrls(site, body.urls)
@@ -235,6 +261,28 @@ export async function apiRoutes(app: FastifyInstance) {
       return reply.code(502).send({ error: err instanceof Error ? err.message : 'Sync failed' })
     }
   })
+
+  // Tree filter: choose which child sitemaps (of a sitemap index) are in scope for sync/submit
+  app.post(
+    '/sites/:id/sitemap-scope',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: { excludedSitemaps: { type: 'array', items: { type: 'string' }, maxItems: 500 } },
+          required: ['excludedSitemaps'],
+          additionalProperties: false,
+        },
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.params as { id: string }
+      const { excludedSitemaps } = req.body as { excludedSitemaps: string[] }
+      const updated = db.update(sites).set({ excludedSitemaps }).where(eq(sites.id, id)).returning().get()
+      if (!updated) return reply.code(404).send({ error: 'Site not found' })
+      return updated
+    },
+  )
 
   // Update sitemap URL after redirect/404 suggestion
   app.post(
@@ -356,6 +404,8 @@ export async function apiRoutes(app: FastifyInstance) {
       events: row?.events ?? [],
       eventKeys: EVENT_KEYS,
       webhookSecret: row?.webhookSecret ?? null,
+      dryRun: DRY_RUN,
+      devMode: process.env.NODE_ENV !== 'production',
     }
   })
 
