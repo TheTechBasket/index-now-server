@@ -99,7 +99,32 @@ type ViewMode = 'cards' | 'table'
 const VIEW_KEY = 'indexnow.dashboard.view'
 
 function loadView(): ViewMode {
+  const params = new URLSearchParams(window.location.search)
+  const fromUrl = params.get('view')
+  if (fromUrl === 'cards' || fromUrl === 'table') return fromUrl
   return (localStorage.getItem(VIEW_KEY) as ViewMode) ?? 'cards'
+}
+
+function readUrlParams() {
+  const p = new URLSearchParams(window.location.search)
+  return {
+    q: p.get('q') ?? '',
+    level: (p.get('level') ?? 'all') as LevelFilter,
+    status: (p.get('status') ?? 'all') as StatusFilter,
+    sort: (p.get('sort') ?? 'name') as SortKey,
+  }
+}
+
+function syncUrlParams(state: { q: string; level: LevelFilter; status: StatusFilter; sort: SortKey; view: ViewMode }) {
+  const p = new URLSearchParams()
+  if (state.q) p.set('q', state.q)
+  if (state.level !== 'all') p.set('level', state.level)
+  if (state.status !== 'all') p.set('status', state.status)
+  if (state.sort !== 'name') p.set('sort', state.sort)
+  if (state.view !== 'cards') p.set('view', state.view)
+  const search = p.toString()
+  const url = search ? `${window.location.pathname}?${search}` : window.location.pathname
+  window.history.replaceState({}, '', url)
 }
 
 type ColumnKey = 'level' | 'urls' | 'key' | 'lastRun'
@@ -151,10 +176,11 @@ export function Dashboard() {
 
   const [view, setView] = useState<ViewMode>(loadView)
   const [visibleCols, setVisibleCols] = useState<Record<ColumnKey, boolean>>(loadCols)
-  const [q, setQ] = useState('')
-  const [levelFilter, setLevelFilter] = useState<LevelFilter>('all')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [sort, setSort] = useState<SortKey>('name')
+  const urlParams = readUrlParams()
+  const [q, setQ] = useState(urlParams.q)
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>(urlParams.level)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(urlParams.status)
+  const [sort, setSort] = useState<SortKey>(urlParams.sort)
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [siteBusy, setSiteBusy] = useState<Record<string, 'submit' | 'verify' | 'sync' | 'delete'>>({})
@@ -187,6 +213,10 @@ export function Dashboard() {
   useEffect(() => {
     localStorage.setItem(COLS_KEY, JSON.stringify(visibleCols))
   }, [visibleCols])
+
+  useEffect(() => {
+    syncUrlParams({ q, level: levelFilter, status: statusFilter, sort, view })
+  }, [q, levelFilter, statusFilter, sort, view])
 
   function toggleCol(key: ColumnKey) {
     setVisibleCols((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -746,11 +776,45 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Empty states */}
+      {/* Empty state: onboarding */}
       {allSites?.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No sites yet. Add your first site to generate an IndexNow key.
+        <Card className="border-dashed">
+          <CardContent className="py-10">
+            <div className="mx-auto max-w-sm space-y-6 text-center">
+              <div>
+                <h3 className="text-lg font-semibold">Get started with IndexNow</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Add your first site to start pushing URL updates to search engines instantly.</p>
+              </div>
+              <div className="space-y-3 text-left text-sm">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">1</span>
+                  <div>
+                    <p className="font-medium">Add a site</p>
+                    <p className="text-xs text-muted-foreground">Enter your domain and we'll auto-discover your sitemap.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">2</span>
+                  <div>
+                    <p className="font-medium">Deploy the key file</p>
+                    <p className="text-xs text-muted-foreground">Host <code className="rounded bg-muted px-1 text-[11px]">&lt;key&gt;.txt</code> at your domain root for ownership verification.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">3</span>
+                  <div>
+                    <p className="font-medium">Submit URLs</p>
+                    <p className="text-xs text-muted-foreground">Verify the key, then submit. All participating search engines get notified.</p>
+                  </div>
+                </div>
+              </div>
+              <Button
+                onClick={() => { setEditing(null); setDialogOpen(true) }}
+                className="gap-1.5"
+              >
+                <Plus aria-hidden className="size-4" /> Add Your First Site
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -803,7 +867,7 @@ export function Dashboard() {
                       onClick={() => verifyOne(site)}
                       disabled={busy !== undefined}
                       title={site.keyVerified ? 'Key verified, click to recheck' : 'Click to verify key'}
-                      aria-label={site.keyVerified ? 'Key verified, click to recheck' : 'Click to verify key'}
+                      aria-label={site.keyVerified ? 'Key verified' : 'Key not verified'}
                       className="shrink-0"
                     >
                       {site.keyVerified ? (
@@ -815,19 +879,16 @@ export function Dashboard() {
                     <a
                       href={`/site/${site.id}`}
                       className="flex-1 truncate text-sm font-semibold hover:underline"
-                      title="Click to view & manage URLs"
                     >
                       {site.name}
                     </a>
-                    <CardAction>
-                      <Badge variant="outline" className="text-[11px] font-normal">
-                        {site.submissionLevel === 'scheduled'
-                          ? site.cronInterval
-                          : site.submissionLevel}
-                      </Badge>
-                    </CardAction>
                   </div>
-                  <CardDescription className="truncate pl-6 text-xs">{site.host}</CardDescription>
+                  <CardDescription className="flex items-center gap-2 truncate pl-6 text-xs">
+                    <span>{site.host}</span>
+                    <Badge variant="outline" className="text-[10px] font-normal px-1 h-4">
+                      {site.submissionLevel === 'scheduled' ? site.cronInterval : site.submissionLevel}
+                    </Badge>
+                  </CardDescription>
                 </CardHeader>
 
                 <CardContent className="pb-3 text-xs text-muted-foreground">
@@ -848,7 +909,7 @@ export function Dashboard() {
                         <Badge
                           variant="outline"
                           className="h-4 gap-0.5 border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] text-amber-700 dark:text-amber-300"
-                          title={`${site.mismatchedCount} URL(s) in the sitemap don't match this site's host - click to review`}
+                          title={`${site.mismatchedCount} URL(s) in the sitemap don't match this site's host`}
                         >
                           <AlertCircle className="size-2.5" aria-hidden /> {site.mismatchedCount} mismatched
                         </Badge>
@@ -865,6 +926,12 @@ export function Dashboard() {
                       {site.nextRunAt && ` · next ${nextRelTime(site.nextRunAt)}`}
                     </span>
                   </div>
+                  {lastStatus === 'error' && site.lastSubmission?.detail && (
+                    <div className="mt-2 flex items-start gap-1.5 rounded border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
+                      <AlertCircle className="mt-0.5 size-3 shrink-0" aria-hidden />
+                      <span className="line-clamp-2">{site.lastSubmission.detail}</span>
+                    </div>
+                  )}
                 </CardContent>
 
                 <CardFooter className="flex items-center justify-between border-t bg-muted/20 px-4 py-2">
@@ -1088,6 +1155,11 @@ export function Dashboard() {
                           </div>
                         ) : (
                           <span className="text-muted-foreground">Never</span>
+                        )}
+                        {lastStatus === 'error' && site.lastSubmission?.detail && (
+                          <span className="line-clamp-1 text-[11px] text-destructive" title={site.lastSubmission.detail}>
+                            {site.lastSubmission.detail}
+                          </span>
                         )}
                         {site.nextRunAt && (
                           <span className="text-[11px] text-muted-foreground" title={new Date(site.nextRunAt).toLocaleString()}>

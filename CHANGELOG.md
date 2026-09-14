@@ -2,6 +2,17 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## [0.7.1] - 2026-09-14
+
+### Changed
+- Footer info cards collapse by default for returning users (localStorage toggle).
+- Dashboard cards show inline error detail for failed submissions (persistent, not just toast).
+- Card header density reduced: submission level badge moved to description line.
+- Empty dashboard replaced with 3-step onboarding guide (add site, deploy key, submit URLs).
+- Dashboard filter state (search, level, status, sort, view) persisted in URL search params.
+- Site URLs filter state (search, status, page) persisted in URL search params.
+- Removed decorative ping animation from footer dot.
+
 ## [0.7.0] - 2026-09-14
 
 ### Added

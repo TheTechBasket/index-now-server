@@ -62,6 +62,25 @@ import { api, type KeyVerifyResult, type Site, type SitemapNode, type SiteUrl, t
 
 const PAGE = 100
 
+function readUrlParams() {
+  const p = new URLSearchParams(window.location.search)
+  return {
+    q: p.get('q') ?? '',
+    status: (p.get('status') ?? 'all') as UrlStatus | 'all',
+    page: Math.max(0, parseInt(p.get('page') ?? '0', 10) || 0),
+  }
+}
+
+function syncUrlParams(state: { q: string; status: UrlStatus | 'all'; page: number }) {
+  const p = new URLSearchParams()
+  if (state.q) p.set('q', state.q)
+  if (state.status !== 'all') p.set('status', state.status)
+  if (state.page > 0) p.set('page', String(state.page))
+  const search = p.toString()
+  const url = search ? `${window.location.pathname}?${search}` : window.location.pathname
+  window.history.replaceState({}, '', url)
+}
+
 type ColumnKey = 'lastmod' | 'lastSeen' | 'lastSubmitted'
 const COLUMN_LABELS: Record<ColumnKey, string> = {
   lastmod: 'Sitemap Lastmod',
@@ -152,9 +171,10 @@ export function SiteUrlsPage({
   const [warnings, setWarnings] = useState<SitemapWarnings | null>(null)
   const [sitemapCount, setSitemapCount] = useState<number | null>(null)
   const [keyStatus, setKeyStatus] = useState<'idle' | 'checking' | 'found' | 'missing' | null>(null)
-  const [q, setQ] = useState('')
-  const [status, setStatus] = useState<UrlStatus | 'all'>('all')
-  const [page, setPage] = useState(0)
+  const [urlParams] = useState(readUrlParams)
+  const [q, setQ] = useState(urlParams.q)
+  const [status, setStatus] = useState<UrlStatus | 'all'>(urlParams.status)
+  const [page, setPage] = useState(urlParams.page)
   const [busy, setBusy] = useState<'sync' | 'submit' | 'reset' | 'prune' | 'deleteAll' | 'deleteSelected' | null>(null)
   const [editOpen, setEditOpen] = useState(initialEditOpen)
   const [manualOpen, setManualOpen] = useState(false)
@@ -172,6 +192,10 @@ export function SiteUrlsPage({
   useEffect(() => {
     localStorage.setItem(COLS_KEY, JSON.stringify(visibleCols))
   }, [visibleCols])
+
+  useEffect(() => {
+    syncUrlParams({ q, status, page })
+  }, [q, status, page])
 
   function toggleCol(key: ColumnKey) {
     setVisibleCols((prev) => ({ ...prev, [key]: !prev[key] }))
