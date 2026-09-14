@@ -2,6 +2,26 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## [0.8.0] - 2026-09-14
+
+### Changed
+- **UI rewritten from React SPA to EJS server-rendered pages.** Zero client-side JS bundles.
+  All interactivity via inline vanilla JS (~10KB per page). CSS bundle: 8.88KB (was 475KB JS + CSS).
+- Removed 12 React dependencies: react, react-dom, lucide-react, radix-ui (all packages),
+  sonner, class-variance-authority, clsx, tailwind-merge, @fastify/vite, @vitejs/plugin-react.
+- Added @fastify/view + ejs for server-side templates, @fastify/static for asset serving.
+- Vite now builds CSS only (Tailwind). Build time: 57ms.
+- Dashboard, site URLs, settings, changelog, login, 404 pages all server-rendered.
+- Site URLs page uses hybrid approach: server shell + client-side URL fetch via API.
+- Inline SVG icons replace lucide-react throughout.
+- Benchmark suite extended with page render phases (dashboard, site-urls, settings, changelog).
+
+### Performance
+- Client payload: 0KB external JS (was 475KB raw, ~160KB gzipped).
+- CSS bundle: 8.88KB (2.52KB gzipped).
+- API endpoints: no regression from v0.7.1 baseline.
+- Settings page render: 938 ops/s. Changelog: 1019 ops/s. Site URLs shell: 1092 ops/s.
+
 ## [0.7.1] - 2026-09-14
 
 ### Changed

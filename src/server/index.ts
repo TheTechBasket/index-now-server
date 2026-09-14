@@ -1,7 +1,8 @@
 import './env.ts'
 import { resolve } from 'node:path'
 import compress from '@fastify/compress'
-import FastifyVite from '@fastify/vite'
+import fastifyView from '@fastify/view'
+import ejs from 'ejs'
 import Fastify from 'fastify'
 import {
   authEnabled,
@@ -14,8 +15,8 @@ import {
 } from './auth.ts'
 import { startCron } from './cron.ts'
 import { apiRoutes, publicRoutes } from './routes/api.ts'
+import { pageRoutes } from './routes/pages.ts'
 
-const dev = process.env.NODE_ENV !== 'production'
 const port = Number(process.env.PORT ?? 3020)
 
 const server = Fastify({
@@ -24,10 +25,14 @@ const server = Fastify({
 
 await server.register(compress)
 
-await server.register(FastifyVite, {
-  root: resolve(import.meta.dirname, '../..'),
-  dev,
-  spa: true,
+const dev = process.env.NODE_ENV !== 'production'
+const viewsDir = resolve(import.meta.dirname, 'views')
+await server.register(fastifyView, {
+  engine: { ejs },
+  root: viewsDir,
+  layout: 'layouts/main.ejs',
+  defaultContext: {},
+  options: { cache: !dev },
 })
 
 // Simple env-gate auth: login/logout. When authEnabled is false these are inert.
@@ -56,19 +61,29 @@ server.get('/api/auth/session', async (req, reply) => {
 
 await server.register(apiRoutes, { prefix: '/api' })
 await server.register(publicRoutes)
+await server.register(pageRoutes)
 
-server.setNotFoundHandler((req, reply) => {
+server.setNotFoundHandler(async (req, reply) => {
   if (req.url.startsWith('/api') || req.url.startsWith('/hook')) {
     return reply.code(404).send({ error: 'Not found' })
   }
   const accept = req.headers.accept ?? ''
   if (accept.includes('text/html')) {
-    return reply.html()
+    const { getGithubStats } = await import('./github.ts')
+    const { appVersion } = await import('./version.ts')
+    const { DRY_RUN } = await import('./indexnow.ts')
+    return reply.code(404).view('pages/not-found.ejs', {
+      title: 'Not Found',
+      version: appVersion,
+      gh: await getGithubStats(),
+      authEnabled,
+      devMode: dev,
+      dryRun: DRY_RUN,
+    } as Record<string, unknown>)
   }
   return reply.code(404).send({ error: 'Not found' })
 })
 
-await server.vite.ready()
 startCron()
 
 await server.listen({ port, host: '0.0.0.0' })

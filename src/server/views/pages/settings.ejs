@@ -1,0 +1,378 @@
+<div class="space-y-6">
+  <div>
+    <h1 class="text-xl font-bold tracking-tight">Global Settings</h1>
+    <p class="text-sm text-muted-foreground">Manage webhooks, secrets, and notification preferences</p>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <!-- Webhook Secret -->
+    <div class="space-y-6">
+      <div class="rounded-xl border bg-card shadow-xs">
+        <div class="px-6 pt-5 pb-3">
+          <div class="flex items-center justify-between">
+            <h2 class="flex items-center gap-2 text-base font-semibold">
+              <svg class="size-4 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
+              Account Webhook Secret
+            </h2>
+            <% if (settings.webhookSecret) { %>
+              <span class="inline-flex items-center rounded-md border border-emerald-500/30 px-1.5 h-5 text-xs font-medium text-emerald-600 dark:text-emerald-400">Active</span>
+            <% } %>
+          </div>
+          <p class="mt-1 text-sm text-muted-foreground">Authenticates incoming URL indexing requests via the <code>X-Webhook-Secret</code> HTTP header.</p>
+        </div>
+        <div class="px-6 pb-4 space-y-4">
+          <% if (settings.webhookSecret) { %>
+            <div class="space-y-1.5">
+              <label class="text-xs text-muted-foreground">Secret Token</label>
+              <div class="flex items-center gap-2">
+                <input type="text" readonly value="<%= settings.webhookSecret %>" class="flex-1 rounded-md border bg-background px-3 py-2 text-xs font-mono outline-none" />
+                <button class="copy-btn inline-flex size-8 items-center justify-center rounded-md border transition-colors hover:bg-accent cursor-pointer" data-text="<%= settings.webhookSecret %>" data-label="Webhook secret" title="Copy secret">
+                  <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="space-y-1.5 rounded-lg border bg-muted/40 p-3">
+              <div class="flex items-center justify-between text-xs">
+                <span class="flex items-center gap-1.5 font-medium text-foreground">
+                  <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+                  Quick cURL Snippet
+                </span>
+                <button id="copy-curl" class="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer">
+                  <svg class="size-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  Copy cURL
+                </button>
+              </div>
+              <pre class="overflow-x-auto text-[11px] leading-relaxed text-muted-foreground"><code id="curl-snippet"></code></pre>
+            </div>
+          <% } else { %>
+            <div class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+              No webhook secret configured yet. Generate one to enable webhook triggers for your sites.
+            </div>
+          <% } %>
+        </div>
+        <div class="border-t px-6 py-3">
+          <button id="rotate-secret" class="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent cursor-pointer">
+            <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <%= settings.webhookSecret ? 'Rotate Secret' : 'Generate Secret' %>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Discord + Notifications -->
+    <div class="space-y-6">
+      <div class="rounded-xl border bg-card shadow-xs">
+        <div class="px-6 pt-5 pb-3">
+          <div class="flex items-center justify-between">
+            <h2 class="flex items-center gap-2 text-base font-semibold">
+              <svg class="size-4 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+              Discord Integration
+            </h2>
+            <% if (settings.discordConfigured) { %>
+              <span class="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 px-1.5 h-5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                <svg class="size-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M20 6 9 17l-5-5"/></svg>
+                Connected
+              </span>
+            <% } else { %>
+              <span class="inline-flex items-center rounded-md bg-muted px-1.5 h-5 text-xs">Not configured</span>
+            <% } %>
+          </div>
+          <p class="mt-1 text-sm text-muted-foreground">Send real-time alerts to a Discord channel when submissions occur or errors happen.</p>
+        </div>
+        <div class="px-6 pb-4 space-y-4">
+          <div class="space-y-1.5">
+            <label for="discord-url" class="text-xs"><%= settings.discordConfigured ? 'Replace Webhook URL' : 'Discord Webhook URL' %></label>
+            <div class="flex items-center gap-2">
+              <input id="discord-url" type="url" placeholder="<%= settings.discordConfigured ? 'https://discord.com/api/webhooks/...' : 'Paste Discord Webhook URL...' %>" class="flex-1 rounded-md border bg-background px-3 py-2 text-xs outline-none ring-ring focus:ring-2" />
+              <button id="save-discord" class="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer">Save</button>
+            </div>
+          </div>
+        </div>
+        <% if (settings.discordConfigured) { %>
+          <div class="flex items-center justify-between border-t bg-muted/20 px-6 py-3">
+            <button id="test-discord" class="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent cursor-pointer">
+              <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+              Send Test Notification
+            </button>
+            <button id="remove-discord" class="rounded-md px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 cursor-pointer">Remove Integration</button>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- Notification toggles -->
+      <div class="rounded-xl border bg-card shadow-xs">
+        <div class="px-6 pt-5 pb-3">
+          <h2 class="text-base font-semibold">Notification Triggers</h2>
+          <p class="mt-1 text-sm text-muted-foreground">Select which events post updates to your Discord webhook.</p>
+        </div>
+        <div class="px-6 pb-4 divide-y divide-border/60">
+          <%
+          var EVENT_LABELS = {
+            'schedule.success': 'Scheduled run submitted URLs',
+            'schedule.no_changes': 'Scheduled run found nothing new',
+            'schedule.error': 'Scheduled run failed',
+            'manual.success': 'Manual submit completed',
+            'manual.error': 'Manual submit failed',
+            'webhook.error': 'Incoming webhook trigger failed',
+            'key_verification.failed': 'Key file not reachable',
+          };
+          settings.eventKeys.forEach(function(key) { %>
+            <div class="flex items-center justify-between py-2.5">
+              <div class="space-y-0.5">
+                <label for="evt-<%= key %>" class="cursor-pointer text-xs font-medium"><%= EVENT_LABELS[key] || key %></label>
+                <div class="text-[10px] font-mono text-muted-foreground"><%= key %></div>
+              </div>
+              <input
+                type="checkbox"
+                id="evt-<%= key %>"
+                class="event-toggle size-4 rounded accent-primary cursor-pointer"
+                data-key="<%= key %>"
+                <%= settings.events.includes(key) ? 'checked' : '' %>
+              />
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API & MCP Reference -->
+  <div class="space-y-6 mt-2">
+    <div class="rounded-xl border bg-card shadow-xs">
+      <div class="px-6 pt-5 pb-3">
+        <h2 class="flex items-center gap-2 text-base font-semibold">
+          <svg class="size-4 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          API Endpoints
+        </h2>
+        <p class="mt-1 text-sm text-muted-foreground">All <code>/api/*</code> endpoints require auth: session cookie or <code>Authorization: Bearer &lt;API_TOKEN&gt;</code> header. Set <code>API_TOKEN</code> in <code>.env</code> for programmatic access.</p>
+      </div>
+      <div class="px-6 pb-5">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b text-left text-muted-foreground">
+                <th class="pb-2 pr-3 font-medium">Method</th>
+                <th class="pb-2 pr-3 font-medium">Path</th>
+                <th class="pb-2 font-medium">Description</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border/50">
+              <% [
+                ['GET', '/api/sites', 'List all sites with URL counts and submission status'],
+                ['GET', '/api/sites/:id', 'Single site with full stats'],
+                ['POST', '/api/sites', 'Add a site (body: name, host, sitemapUrl)'],
+                ['PATCH', '/api/sites/:id', 'Update site settings'],
+                ['DELETE', '/api/sites/:id', 'Remove a site and all its URLs'],
+                ['POST', '/api/sites/:id/sync', 'Refresh URLs from sitemap'],
+                ['POST', '/api/sites/:id/submit', 'Submit pending URLs to search engines'],
+                ['POST', '/api/sites/:id/verify-key', 'Check key file deployment'],
+                ['POST', '/api/sites/:id/rotate-key', 'Generate new IndexNow key'],
+                ['GET', '/api/sites/:id/urls', 'Paginated URL list (query: q, status, limit, offset)'],
+                ['GET', '/api/sites/:id/submissions', 'Submission history'],
+                ['POST', '/api/sites/:id/urls/reset', 'Reset all URL statuses to pending'],
+                ['POST', '/api/sites/discover', 'Auto-discover sitemaps from a domain'],
+                ['GET', '/api/cron/status', 'Current cron job progress'],
+                ['GET', '/api/settings', 'App settings'],
+                ['PUT', '/api/settings', 'Update settings'],
+                ['POST', '/hook/:siteId', 'Public webhook trigger (X-Webhook-Secret header)'],
+              ].forEach(function(row) { %>
+                <tr>
+                  <td class="py-1.5 pr-3"><span class="inline-flex items-center rounded-md border px-1.5 py-0 text-[10px] font-mono font-medium"><%= row[0] %></span></td>
+                  <td class="py-1.5 pr-3 font-mono text-[11px] whitespace-nowrap"><%= row[1] %></td>
+                  <td class="py-1.5 text-muted-foreground"><%= row[2] %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-xl border bg-card shadow-xs">
+      <div class="px-6 pt-5 pb-3">
+        <h2 class="flex items-center gap-2 text-base font-semibold">
+          <svg class="size-4 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+          MCP Server
+        </h2>
+        <p class="mt-1 text-sm text-muted-foreground">Connect AI agents via <a href="https://modelcontextprotocol.io/" target="_blank" rel="noreferrer" class="underline hover:text-foreground">Model Context Protocol</a>. Runs over stdio, reads the database directly.</p>
+      </div>
+      <div class="px-6 pb-5 space-y-4">
+        <div class="space-y-1.5 rounded-lg border bg-muted/40 p-3">
+          <div class="flex items-center justify-between text-xs">
+            <span class="flex items-center gap-1.5 font-medium text-foreground">
+              <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+              Claude / Cursor config
+            </span>
+            <button id="copy-mcp" class="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer">
+              <svg class="size-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              Copy
+            </button>
+          </div>
+          <pre class="overflow-x-auto text-[11px] leading-relaxed text-muted-foreground"><code>{
+  "mcpServers": {
+    "indexnow": {
+      "command": "pnpm",
+      "args": ["mcp"],
+      "cwd": "/path/to/index-now-server",
+      "env": { "DATABASE_PATH": "./data/indexnow.db" }
+    }
+  }
+}</code></pre>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b text-left text-muted-foreground">
+                <th class="pb-2 pr-3 font-medium">Tool</th>
+                <th class="pb-2 font-medium">Description</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border/50">
+              <% [
+                ['get_overview', 'Full project state: all sites, cron, settings, version, API reference. Call first.'],
+                ['get_site_detail', 'One site: config, URL counts, recent submissions, errors, key status'],
+                ['add_site', 'Add a site (auto-discovers sitemap from robots.txt)'],
+                ['update_site', 'Change submission level, cron interval, sitemap URL, name'],
+                ['verify_key', 'Check key deployment, returns setup instructions if not deployed'],
+                ['submit_urls', 'Submit pending URLs to search engines'],
+                ['sync_sitemap', 'Refresh URLs from sitemap without submitting'],
+                ['get_site_urls', 'Browse/search URLs with status filter and pagination'],
+              ].forEach(function(row) { %>
+                <tr>
+                  <td class="py-1.5 pr-3 font-mono text-[11px] whitespace-nowrap"><%= row[0] %></td>
+                  <td class="py-1.5 text-muted-foreground"><%= row[1] %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  function api(url, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    return fetch('/api' + url, opts).then(function(res) {
+      return res.json().then(function(data) {
+        if (!res.ok) throw new Error(data.error || 'Request failed');
+        return data;
+      });
+    });
+  }
+
+  function toast(msg, type) {
+    var el = document.createElement('div');
+    el.className = 'animate-enter rounded-md border px-4 py-2 text-sm shadow-lg ' +
+      (type === 'error' ? 'border-destructive/30 bg-destructive/10 text-destructive' :
+       'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400');
+    el.textContent = msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(function() { el.remove(); }, 3500);
+  }
+
+  function copyText(text, label) {
+    navigator.clipboard.writeText(text).then(
+      function() { toast(label + ' copied'); },
+      function() { toast('Clipboard unavailable', 'error'); }
+    );
+  }
+
+  // Copy buttons
+  document.querySelectorAll('.copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      copyText(btn.dataset.text, btn.dataset.label);
+    });
+  });
+
+  // cURL snippet
+  var curlEl = document.getElementById('curl-snippet');
+  if (curlEl) {
+    var secret = '<%= settings.webhookSecret || "<SECRET>" %>';
+    var snippet = 'curl -X POST "' + location.origin + '/hook/<SITE_ID>" \\\n  -H "X-Webhook-Secret: ' + secret + '" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"url":"https://example.com/new-page"}\'';
+    curlEl.textContent = snippet;
+    var copyCurl = document.getElementById('copy-curl');
+    if (copyCurl) copyCurl.addEventListener('click', function() { copyText(snippet, 'cURL command'); });
+  }
+
+  // MCP config copy
+  var copyMcp = document.getElementById('copy-mcp');
+  if (copyMcp) {
+    copyMcp.addEventListener('click', function() {
+      var config = JSON.stringify({ mcpServers: { indexnow: { command: 'pnpm', args: ['mcp'], cwd: '/path/to/index-now-server', env: { DATABASE_PATH: './data/indexnow.db' } } } }, null, 2);
+      copyText(config, 'MCP config');
+    });
+  }
+
+  // Rotate webhook secret
+  var rotateBtn = document.getElementById('rotate-secret');
+  if (rotateBtn) {
+    rotateBtn.addEventListener('click', function() {
+      rotateBtn.disabled = true;
+      var bytes = new Uint8Array(24);
+      crypto.getRandomValues(bytes);
+      var secret = Array.from(bytes).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+      api('/settings', { method: 'PUT', body: JSON.stringify({ webhookSecret: secret }) })
+        .then(function() { toast('Webhook secret updated'); location.reload(); })
+        .catch(function(err) { toast(err.message, 'error'); rotateBtn.disabled = false; });
+    });
+  }
+
+  // Save Discord URL
+  var saveDiscord = document.getElementById('save-discord');
+  if (saveDiscord) {
+    saveDiscord.addEventListener('click', function() {
+      var url = document.getElementById('discord-url').value.trim();
+      if (!url) return;
+      saveDiscord.disabled = true;
+      api('/settings', { method: 'PUT', body: JSON.stringify({ discordWebhookUrl: url }) })
+        .then(function() { toast('Discord webhook saved'); location.reload(); })
+        .catch(function(err) { toast(err.message, 'error'); saveDiscord.disabled = false; });
+    });
+  }
+
+  // Test Discord
+  var testDiscord = document.getElementById('test-discord');
+  if (testDiscord) {
+    testDiscord.addEventListener('click', function() {
+      testDiscord.disabled = true;
+      testDiscord.textContent = 'Sending test...';
+      api('/settings/test-notification', { method: 'POST' })
+        .then(function() { toast('Test notification sent to Discord'); })
+        .catch(function(err) { toast(err.message, 'error'); })
+        .finally(function() { testDiscord.disabled = false; testDiscord.textContent = 'Send Test Notification'; });
+    });
+  }
+
+  // Remove Discord
+  var removeDiscord = document.getElementById('remove-discord');
+  if (removeDiscord) {
+    removeDiscord.addEventListener('click', function() {
+      api('/settings', { method: 'PUT', body: JSON.stringify({ discordWebhookUrl: null }) })
+        .then(function() { toast('Discord integration removed'); location.reload(); })
+        .catch(function(err) { toast(err.message, 'error'); });
+    });
+  }
+
+  // Event toggles
+  document.querySelectorAll('.event-toggle').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      var events = [];
+      document.querySelectorAll('.event-toggle:checked').forEach(function(el) {
+        events.push(el.dataset.key);
+      });
+      api('/settings', { method: 'PUT', body: JSON.stringify({ events: events }) })
+        .catch(function(err) { toast(err.message, 'error'); cb.checked = !cb.checked; });
+    });
+  });
+})();
+</script>

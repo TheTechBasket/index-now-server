@@ -1,0 +1,1243 @@
+<div class="space-y-6" id="dashboard">
+  <!-- Page header -->
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Sites</h1>
+      <p class="text-sm text-muted-foreground"><%= stats.total %> sites configured</p>
+    </div>
+    <button
+      id="btn-add-site"
+      class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 cursor-pointer"
+    >
+      <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      Add Site
+    </button>
+  </div>
+
+  <!-- Cron progress banner -->
+  <% if (cron) { %>
+    <div id="cron-banner" class="flex items-center gap-3 rounded-lg border bg-muted/40 px-4 py-2.5 text-sm">
+      <svg class="size-4 shrink-0 animate-spin text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      <span class="font-medium">
+        Running <%= cron.interval %> sync: <%= cron.index %>/<%= cron.total %>
+      </span>
+      <% if (cron.currentSiteName) { %>
+        <span class="truncate text-muted-foreground"><%= cron.currentSiteName %></span>
+      <% } %>
+      <div class="ml-auto h-1.5 w-32 overflow-hidden rounded-full bg-muted">
+        <div class="h-full bg-primary transition-all" style="width: <%= cron.total ? (cron.index / cron.total) * 100 : 0 %>%"></div>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- KPI cards -->
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="kpi-card cursor-pointer rounded-xl border bg-card p-4 shadow-xs transition-all hover:border-primary/50" data-filter-level="all" data-filter-status="all">
+      <div class="flex items-center justify-between pb-2">
+        <span class="text-xs font-medium text-muted-foreground">Total Sites</span>
+        <svg class="size-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+      </div>
+      <div class="text-2xl font-bold"><%= stats.total %></div>
+      <p class="text-[11px] text-muted-foreground mt-1"><%= stats.verified %> / <%= stats.total %> verified keys</p>
+    </div>
+
+    <div class="kpi-card cursor-pointer rounded-xl border bg-card p-4 shadow-xs transition-all <%= stats.pending > 0 ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10' : '' %>" data-filter-level="all" data-filter-status="pending">
+      <div class="flex items-center justify-between pb-2">
+        <span class="text-xs font-medium text-amber-600 dark:text-amber-400">Pending URLs</span>
+        <svg class="size-4 text-amber-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+      </div>
+      <div class="flex items-center justify-between">
+        <div class="text-2xl font-bold text-amber-600 dark:text-amber-400"><%= stats.pending %></div>
+        <% if (stats.pending > 0) { %>
+          <button id="btn-submit-all" class="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer">
+            <svg class="size-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+            Submit All
+          </button>
+        <% } %>
+      </div>
+      <p class="text-[11px] text-muted-foreground mt-1"><%= stats.pending > 0 ? 'Ready for immediate submission' : 'All sitemaps up to date' %></p>
+    </div>
+
+    <div class="rounded-xl border bg-card p-4 shadow-xs">
+      <div class="flex items-center justify-between pb-2">
+        <span class="text-xs font-medium text-muted-foreground">Tracked URLs</span>
+        <svg class="size-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+      </div>
+      <div class="text-2xl font-bold"><%= stats.urls.toLocaleString() %></div>
+      <p class="text-[11px] text-muted-foreground mt-1">Across all site sitemaps</p>
+    </div>
+
+    <div class="kpi-card cursor-pointer rounded-xl border bg-card p-4 shadow-xs transition-all <%= stats.errors > 0 ? 'border-destructive/40 bg-destructive/5' : '' %>" data-filter-level="all" data-filter-status="errors">
+      <div class="flex items-center justify-between pb-2">
+        <span class="text-xs font-medium text-muted-foreground">System Health</span>
+        <% if (stats.errors > 0) { %>
+          <svg class="size-4 text-destructive" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+        <% } else { %>
+          <svg class="size-4 text-emerald-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <% } %>
+      </div>
+      <div class="text-2xl font-bold"><%= stats.errors > 0 ? stats.errors + ' Error' + (stats.errors > 1 ? 's' : '') : 'Healthy' %></div>
+      <p class="text-[11px] text-muted-foreground mt-1"><%= stats.errors > 0 ? 'Sites failed last submission' : 'All keys and runs operational' %></p>
+    </div>
+  </div>
+
+  <!-- Controls: filter pills + view toggle -->
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h2 class="text-lg font-semibold tracking-tight">Managed Sites</h2>
+    <div class="flex items-center gap-2">
+      <div id="filter-pills" class="flex items-center rounded-lg border bg-muted/30 p-1 text-xs">
+        <button class="filter-pill rounded px-2.5 py-1 font-medium transition-colors" data-level="all" data-status="all">All (<%= stats.total %>)</button>
+        <button class="filter-pill rounded px-2.5 py-1 font-medium transition-colors" data-level="all" data-status="pending">Pending (<%= stats.pending %>)</button>
+        <button class="filter-pill rounded px-2.5 py-1 font-medium transition-colors" data-level="webhook" data-status="all">Webhook</button>
+        <% if (stats.errors > 0) { %>
+          <button class="filter-pill rounded px-2.5 py-1 font-medium transition-colors" data-level="all" data-status="errors">Errors (<%= stats.errors %>)</button>
+        <% } %>
+      </div>
+      <div class="flex rounded-md border p-0.5">
+        <button id="view-cards" class="inline-flex size-7 items-center justify-center rounded-sm transition-colors cursor-pointer" aria-label="Card view" title="Card view">
+          <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+        </button>
+        <button id="view-table" class="inline-flex size-7 items-center justify-center rounded-sm transition-colors cursor-pointer" aria-label="Table view" title="Table view">
+          <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search + Sort toolbar -->
+  <% if (sites.length > 0) { %>
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="relative">
+        <svg class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Search sites or hostnames..."
+          aria-label="Search sites or hostnames"
+          class="h-8 w-60 rounded-md border bg-background pl-9 pr-3 text-xs outline-none ring-ring focus:ring-2"
+        />
+      </div>
+      <select id="sort-select" class="h-8 rounded-md border bg-background px-2 text-xs outline-none ring-ring focus:ring-2 cursor-pointer">
+        <option value="name">Sort: Name</option>
+        <option value="pending">Sort: Pending</option>
+        <option value="lastSubmit">Sort: Last submit</option>
+        <option value="created">Sort: Newest</option>
+      </select>
+      <button id="clear-filters" class="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer">
+        <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        Clear filters
+      </button>
+      <div class="ml-auto text-xs text-muted-foreground" id="showing-count"></div>
+    </div>
+  <% } %>
+
+  <!-- Bulk actions bar -->
+  <div id="bulk-bar" class="hidden animate-enter flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5">
+    <span class="text-sm font-medium" id="bulk-count">0 selected</span>
+    <button class="bulk-action inline-flex items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs font-medium transition-colors hover:bg-accent cursor-pointer" data-action="submit">
+      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+      Submit
+    </button>
+    <button class="bulk-action inline-flex items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs font-medium transition-colors hover:bg-accent cursor-pointer" data-action="sync">
+      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      Sync
+    </button>
+    <button class="bulk-action inline-flex items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs font-medium transition-colors hover:bg-accent cursor-pointer" data-action="verify">
+      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+      Verify
+    </button>
+    <button class="bulk-action inline-flex items-center gap-1 rounded-md border border-destructive/50 bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20 cursor-pointer" data-action="delete">
+      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+      Delete
+    </button>
+    <button id="bulk-clear" class="inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground cursor-pointer">
+      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+  </div>
+
+  <!-- Empty state -->
+  <% if (sites.length === 0) { %>
+    <div class="rounded-xl border border-dashed bg-card p-10">
+      <div class="mx-auto max-w-sm space-y-6 text-center">
+        <div>
+          <h3 class="text-lg font-semibold">No sites yet</h3>
+          <p class="mt-1 text-sm text-muted-foreground">Add a site, deploy the key file, then submit URLs to search engines.</p>
+        </div>
+        <div class="space-y-3 text-left text-sm">
+          <div class="flex items-start gap-3">
+            <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">1</span>
+            <div>
+              <p class="font-medium">Add a site</p>
+              <p class="text-xs text-muted-foreground">Enter your domain. The sitemap is auto-discovered from robots.txt.</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">2</span>
+            <div>
+              <p class="font-medium">Deploy the key file</p>
+              <p class="text-xs text-muted-foreground">Host <code class="rounded bg-muted px-1 text-[11px]">&lt;key&gt;.txt</code> at your domain root for ownership verification.</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">3</span>
+            <div>
+              <p class="font-medium">Submit URLs</p>
+              <p class="text-xs text-muted-foreground">Verify the key, then submit. Bing, Yandex, Naver, Seznam all get notified.</p>
+            </div>
+          </div>
+        </div>
+        <button
+          class="add-site-trigger inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 cursor-pointer"
+        >
+          <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          Add Site
+        </button>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- Card view -->
+  <div id="cards-view" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <% sites.forEach(function(site, i) { %>
+      <div
+        class="site-card card-hover animate-enter rounded-xl border bg-card shadow-xs ring-1 ring-foreground/10 transition-colors <%= site.lastSubmission && site.lastSubmission.status === 'error' ? 'border-destructive/40' : '' %>"
+        data-id="<%= site.id %>"
+        data-name="<%= site.name.toLowerCase() %>"
+        data-host="<%= site.host.toLowerCase() %>"
+        data-level="<%= site.submissionLevel %>"
+        data-pending="<%= site.urlCounts.pending %>"
+        data-verified="<%= site.keyVerified ? '1' : '0' %>"
+        data-status="<%= site.lastSubmission ? site.lastSubmission.status : 'never' %>"
+        data-created="<%= site.createdAt %>"
+        data-last-submit="<%= site.lastSubmission ? site.lastSubmission.createdAt : '0' %>"
+        style="animation-delay: <%= Math.min(i * 30, 240) %>ms"
+      >
+        <div class="px-4 pt-4 pb-2">
+          <div class="flex items-center gap-2">
+            <input type="checkbox" class="site-checkbox size-4 rounded border accent-primary cursor-pointer" data-id="<%= site.id %>" />
+            <button class="verify-btn shrink-0 cursor-pointer" data-id="<%= site.id %>" title="<%= site.keyVerified ? 'Key verified, click to recheck' : 'Click to verify key' %>">
+              <% if (site.keyVerified) { %>
+                <svg class="size-4 text-emerald-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+              <% } else { %>
+                <svg class="size-4 text-amber-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              <% } %>
+            </button>
+            <a href="/site/<%= site.id %>" class="flex-1 truncate text-sm font-semibold hover:underline"><%= site.name %></a>
+          </div>
+          <div class="flex items-center gap-2 truncate pl-10 text-xs text-muted-foreground mt-0.5">
+            <span><%= site.host %></span>
+            <span class="rounded-md border px-1 h-4 text-[10px] font-normal inline-flex items-center"><%= site.submissionLevel === 'scheduled' ? site.cronInterval : site.submissionLevel %></span>
+          </div>
+        </div>
+
+        <div class="px-4 pb-3 text-xs text-muted-foreground">
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span class="tabular-nums font-medium text-foreground"><%= site.urlCounts.total %> URLs</span>
+            <% if (site.urlCounts.pending > 0) { %>
+              <span class="inline-flex items-center rounded-md bg-primary px-1.5 h-4 text-[10px] font-medium text-primary-foreground"><%= site.urlCounts.pending %> pending</span>
+            <% } %>
+            <% if (site.lastSubmission && site.lastSubmission.status === 'error') { %>
+              <span class="inline-flex items-center rounded-md bg-destructive px-1.5 h-4 text-[10px] font-medium text-destructive-foreground animate-attention">errored</span>
+            <% } %>
+            <% if (site.mismatchedCount > 0) { %>
+              <a href="/site/<%= site.id %>">
+                <span class="inline-flex items-center gap-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 h-4 text-[10px] text-amber-700 dark:text-amber-300" title="<%= site.mismatchedCount %> URL(s) in the sitemap don't match this site's host">
+                  <svg class="size-2.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                  <%= site.mismatchedCount %> mismatched
+                </span>
+              </a>
+            <% } %>
+            <span class="ml-auto text-[11px] site-time" data-last="<%= site.lastSubmission ? site.lastSubmission.createdAt : '' %>" data-next="<%= site.nextRunAt || '' %>"></span>
+          </div>
+          <% if (site.lastSubmission && site.lastSubmission.status === 'error' && site.lastSubmission.detail) { %>
+            <div class="mt-2 flex items-start gap-1.5 rounded border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
+              <svg class="mt-0.5 size-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+              <span class="line-clamp-2"><%= site.lastSubmission.detail %></span>
+            </div>
+          <% } %>
+        </div>
+
+        <div class="flex items-center justify-between border-t bg-muted/20 px-4 py-2">
+          <div class="flex items-center gap-1">
+            <button
+              class="submit-btn inline-flex items-center gap-1 rounded-md <%= site.urlCounts.pending > 0 ? 'bg-primary text-primary-foreground' : 'border bg-background' %> px-2 h-7 text-xs font-medium transition-colors cursor-pointer"
+              data-id="<%= site.id %>"
+              <%= !site.keyVerified ? 'disabled title="Verify the IndexNow key before submitting"' : 'title="Submit pending URLs"' %>
+            >
+              <svg class="size-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+              Submit
+              <% if (site.urlCounts.pending > 0) { %>
+                <span class="rounded bg-primary-foreground/20 px-1 text-[9px] font-semibold"><%= site.urlCounts.pending %></span>
+              <% } %>
+            </button>
+            <button class="sync-btn inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer" data-id="<%= site.id %>" title="Sync sitemap">
+              <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            </button>
+            <button class="key-btn inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer" data-id="<%= site.id %>" data-host="<%= site.host %>" data-key="<%= site.apiKey %>" data-name="<%= site.name %>" data-verified="<%= site.keyVerified ? '1' : '0' %>" title="IndexNow Key file">
+              <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
+            </button>
+            <% if (site.submissionLevel === 'webhook') { %>
+              <button class="copy-hook-btn inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer" data-id="<%= site.id %>" title="Copy Webhook Endpoint">
+                <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg>
+              </button>
+            <% } %>
+          </div>
+          <div class="relative">
+            <button class="more-btn inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer" data-id="<%= site.id %>">
+              <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+
+  <!-- Table view -->
+  <div id="table-view" class="hidden overflow-x-auto rounded-lg border">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b bg-muted/50">
+          <th class="w-8 px-3 py-2"><input type="checkbox" id="select-all" class="size-4 rounded border accent-primary cursor-pointer" /></th>
+          <th class="px-3 py-2 text-left font-medium">Site</th>
+          <th class="px-3 py-2 text-left font-medium">Level</th>
+          <th class="px-3 py-2 text-right font-medium">URLs</th>
+          <th class="px-3 py-2 text-right font-medium">Pending</th>
+          <th class="px-3 py-2 text-left font-medium">Key</th>
+          <th class="px-3 py-2 text-left font-medium">Last run</th>
+          <th class="px-3 py-2 text-right font-medium">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% sites.forEach(function(site) { %>
+          <tr
+            class="site-row border-b transition-colors hover:bg-muted/50"
+            data-id="<%= site.id %>"
+            data-name="<%= site.name.toLowerCase() %>"
+            data-host="<%= site.host.toLowerCase() %>"
+            data-level="<%= site.submissionLevel %>"
+            data-pending="<%= site.urlCounts.pending %>"
+            data-verified="<%= site.keyVerified ? '1' : '0' %>"
+            data-status="<%= site.lastSubmission ? site.lastSubmission.status : 'never' %>"
+            data-created="<%= site.createdAt %>"
+            data-last-submit="<%= site.lastSubmission ? site.lastSubmission.createdAt : '0' %>"
+          >
+            <td class="px-3 py-2"><input type="checkbox" class="site-checkbox size-4 rounded border accent-primary cursor-pointer" data-id="<%= site.id %>" /></td>
+            <td class="px-3 py-2">
+              <a href="/site/<%= site.id %>" class="block">
+                <div class="flex items-center gap-1.5 font-medium leading-tight">
+                  <%= site.name %>
+                  <% if (site.mismatchedCount > 0) { %>
+                    <svg class="size-3.5 shrink-0 text-amber-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden title="<%= site.mismatchedCount %> mismatched URLs"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                  <% } %>
+                </div>
+                <div class="text-xs text-muted-foreground"><%= site.host %></div>
+              </a>
+            </td>
+            <td class="px-3 py-2">
+              <span class="inline-flex items-center rounded-md border px-1.5 h-5 text-xs font-normal"><%= site.submissionLevel === 'scheduled' ? 'sched: ' + site.cronInterval : site.submissionLevel %></span>
+            </td>
+            <td class="px-3 py-2 text-right tabular-nums"><%= site.urlCounts.total %></td>
+            <td class="px-3 py-2 text-right">
+              <% if (site.urlCounts.pending > 0) { %>
+                <span class="inline-flex items-center rounded-md bg-primary px-1.5 h-5 text-xs font-medium text-primary-foreground"><%= site.urlCounts.pending %></span>
+              <% } else { %>
+                <span class="text-muted-foreground">0</span>
+              <% } %>
+            </td>
+            <td class="px-3 py-2">
+              <button class="verify-btn cursor-pointer" data-id="<%= site.id %>" title="<%= site.keyVerified ? 'Verified, recheck' : 'Verify key' %>">
+                <% if (site.keyVerified) { %>
+                  <svg class="size-4 text-emerald-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+                <% } else { %>
+                  <svg class="size-4 text-amber-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                <% } %>
+              </button>
+            </td>
+            <td class="px-3 py-2 text-xs">
+              <% if (site.lastSubmission) { %>
+                <span class="site-time" data-last="<%= site.lastSubmission.createdAt %>" data-next="<%= site.nextRunAt || '' %>"></span>
+              <% } else { %>
+                <span class="text-muted-foreground">Never</span>
+              <% } %>
+            </td>
+            <td class="px-3 py-2">
+              <div class="flex items-center justify-end gap-0.5">
+                <button class="submit-btn inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer" data-id="<%= site.id %>" title="Submit" <%= !site.keyVerified ? 'disabled' : '' %>>
+                  <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+                </button>
+                <button class="sync-btn inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer" data-id="<%= site.id %>" title="Sync sitemap">
+                  <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                </button>
+                <button class="key-btn inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer" data-id="<%= site.id %>" data-host="<%= site.host %>" data-key="<%= site.apiKey %>" data-name="<%= site.name %>" data-verified="<%= site.keyVerified ? '1' : '0' %>" title="Key file">
+                  <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <% if (sites.length > 0) { %>
+    <p class="text-xs text-muted-foreground">
+      Host the key file at <code>https://&lt;host&gt;/&lt;key&gt;.txt</code> containing only the key string.
+      IndexNow verifies ownership through it on every submission.
+    </p>
+  <% } %>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+<!-- Add/Edit Site Dialog -->
+<dialog id="site-dialog" class="w-full max-w-md rounded-xl border bg-background p-0 shadow-lg backdrop:bg-black/50">
+  <div class="p-6">
+    <h2 id="site-dialog-title" class="text-lg font-semibold">Add Site</h2>
+    <p class="mt-1 text-sm text-muted-foreground">Enter your domain. The sitemap is auto-discovered from robots.txt.</p>
+    <form id="site-form" class="mt-4 space-y-4">
+      <input type="hidden" id="site-edit-id" value="" />
+      <div>
+        <label for="site-host" class="block text-sm font-medium mb-1">Domain</label>
+        <input type="text" id="site-host" name="host" required placeholder="example.com" class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2" />
+      </div>
+      <div>
+        <label for="site-name" class="block text-sm font-medium mb-1">Name</label>
+        <input type="text" id="site-name" name="name" required placeholder="My Site" class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2" />
+      </div>
+      <div>
+        <label for="site-sitemap" class="block text-sm font-medium mb-1">Sitemap URL</label>
+        <div class="flex gap-2">
+          <input type="url" id="site-sitemap" name="sitemapUrl" required placeholder="https://example.com/sitemap.xml" class="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2" />
+          <button type="button" id="discover-btn" class="rounded-md border bg-background px-3 py-2 text-xs font-medium transition-colors hover:bg-accent cursor-pointer">Discover</button>
+        </div>
+        <p id="discover-status" class="mt-1 text-xs text-muted-foreground hidden"></p>
+      </div>
+      <div>
+        <label for="site-level" class="block text-sm font-medium mb-1">Submission Level</label>
+        <select id="site-level" name="submissionLevel" class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2 cursor-pointer">
+          <option value="manual">Manual</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="webhook">Webhook</option>
+        </select>
+      </div>
+      <div id="cron-field" class="hidden">
+        <label for="site-cron" class="block text-sm font-medium mb-1">Schedule</label>
+        <select id="site-cron" name="cronInterval" class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2 cursor-pointer">
+          <option value="hourly">Hourly</option>
+          <option value="6h">Every 6 hours</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div id="apikey-field" class="hidden">
+        <label for="site-apikey" class="block text-sm font-medium mb-1">IndexNow Key</label>
+        <input type="text" id="site-apikey" name="apiKey" placeholder="Auto-generated if empty" class="w-full rounded-md border bg-background px-3 py-2 text-sm font-mono outline-none ring-ring focus:ring-2" />
+        <p class="mt-1 text-xs text-muted-foreground">Leave empty to auto-generate. Bring your own key if migrating.</p>
+      </div>
+      <div id="site-form-error" class="hidden text-sm text-red-500"></div>
+      <div class="flex items-center justify-between gap-2 pt-2">
+        <button type="button" id="btn-delete-from-edit" class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/20 cursor-pointer">Delete</button>
+        <div class="flex gap-2 ml-auto">
+          <button type="button" id="site-dialog-cancel" class="rounded-md border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent cursor-pointer">Cancel</button>
+          <button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer">Save</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- Key File Dialog -->
+<dialog id="key-dialog" class="w-full max-w-lg rounded-xl border bg-background p-0 shadow-lg backdrop:bg-black/50">
+  <div class="p-6">
+    <h2 id="key-dialog-title" class="text-lg font-semibold"></h2>
+    <p id="key-dialog-desc" class="mt-1 text-sm text-muted-foreground"></p>
+    <div class="mt-4 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3 text-sm">
+        <span id="key-status-badge"></span>
+        <div class="flex items-center gap-1.5">
+          <button id="key-reverify" class="rounded-md border bg-background px-2 py-1 text-xs font-medium transition-colors hover:bg-accent cursor-pointer">Re-verify</button>
+          <button id="key-copy" class="rounded-md border bg-background px-2 py-1 text-xs font-medium transition-colors hover:bg-accent cursor-pointer">Copy Key</button>
+        </div>
+      </div>
+      <div>
+        <p class="text-sm font-medium mb-2">Key file content</p>
+        <pre id="key-file-content" class="rounded-md border bg-muted/50 px-3 py-2 text-xs font-mono select-all"></pre>
+        <p class="mt-2 text-xs text-muted-foreground">
+          Save this as <code id="key-filename" class="rounded bg-muted px-1 text-[11px]"></code> at your domain root.
+          The file must contain only the key string, no quotes, no newline.
+        </p>
+      </div>
+      <div class="flex justify-end">
+        <button id="key-dialog-close" class="rounded-md border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent cursor-pointer">Done</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Delete Confirmation Dialog -->
+<dialog id="delete-dialog" class="w-full max-w-md rounded-xl border bg-background p-0 shadow-lg backdrop:bg-black/50">
+  <div class="p-6">
+    <h2 id="delete-dialog-title" class="text-lg font-semibold"></h2>
+    <p class="mt-1 text-sm text-muted-foreground">This permanently deletes each site and all its submission history. Cannot be undone.</p>
+    <div id="delete-list" class="mt-4 max-h-64 overflow-y-auto rounded-md border"></div>
+    <div class="flex justify-end gap-2 pt-4">
+      <button id="delete-cancel" class="rounded-md border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent cursor-pointer">Cancel</button>
+      <button id="delete-confirm" class="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 cursor-pointer">Delete</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Context menu (dropdown) -->
+<div id="context-menu" class="hidden fixed z-50 min-w-[160px] rounded-md border bg-popover p-1 shadow-md">
+  <a id="ctx-browse" href="#" class="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent">
+    <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M12 3v14"/><path d="M5 10h14"/><path d="M5 21h14"/><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+    Browse URLs
+  </a>
+  <button id="ctx-verify" class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent cursor-pointer">
+    <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+    Re-verify key
+  </button>
+  <button id="ctx-copy-hook" class="hidden flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent cursor-pointer">
+    <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+    Copy hook URL
+  </button>
+  <div class="my-1 border-t"></div>
+  <button id="ctx-log" class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent cursor-pointer">
+    <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+    Submission log
+  </button>
+  <button id="ctx-edit" class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent cursor-pointer">
+    <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+    Site settings
+  </button>
+  <div class="my-1 border-t"></div>
+  <button id="ctx-delete" class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-accent cursor-pointer">
+    <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+    Delete site
+  </button>
+</div>
+
+<!-- Submission Log Dialog -->
+<dialog id="log-dialog" class="w-full max-w-3xl rounded-xl border bg-background p-0 shadow-lg backdrop:bg-black/50">
+  <div class="p-6">
+    <h2 id="log-dialog-title" class="text-lg font-semibold"></h2>
+    <p id="log-dialog-desc" class="mt-1 text-sm text-muted-foreground"></p>
+    <div id="log-table-wrap" class="mt-4 max-h-96 overflow-y-auto rounded-md border">
+      <table class="w-full text-sm">
+        <thead class="sticky top-0 bg-muted/80 backdrop-blur-sm">
+          <tr class="border-b text-xs">
+            <th class="px-3 py-2 text-left font-medium">Time</th>
+            <th class="px-3 py-2 text-left font-medium">Status</th>
+            <th class="px-3 py-2 text-right font-medium">Submitted</th>
+            <th class="px-3 py-2 text-left font-medium">Detail</th>
+          </tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+    <div id="log-empty" class="hidden mt-4 text-center text-sm text-muted-foreground py-8">No submissions yet.</div>
+    <div class="flex justify-end pt-4">
+      <button id="log-dialog-close" class="rounded-md border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent cursor-pointer">Close</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(function() {
+  'use strict';
+
+  // --- Helpers ---
+  var SITES_DATA = <%- JSON.stringify(sites) %>;
+  var selected = new Set();
+
+  function api(url, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    return fetch('/api' + url, opts).then(function(res) {
+      return res.json().then(function(data) {
+        if (!res.ok) throw new Error(data.error || 'Request failed');
+        return data;
+      });
+    });
+  }
+
+  function toast(msg, type) {
+    var el = document.createElement('div');
+    el.className = 'animate-enter rounded-md border px-4 py-2 text-sm shadow-lg ' +
+      (type === 'error' ? 'border-destructive/30 bg-destructive/10 text-destructive' :
+       type === 'info' ? 'border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400' :
+       'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400');
+    el.textContent = msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(function() { el.remove(); }, 3500);
+  }
+
+  function relTime(d) {
+    if (!d) return 'never';
+    var diff = Date.now() - new Date(d).getTime();
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+    if (diff < 7 * 86400000) return Math.floor(diff / 86400000) + 'd ago';
+    return new Date(d).toLocaleDateString();
+  }
+
+  function nextRelTime(d) {
+    var diff = new Date(d).getTime() - Date.now();
+    if (diff <= 0) return 'soon';
+    if (diff < 3600000) return 'in ' + Math.max(1, Math.floor(diff / 60000)) + 'm';
+    if (diff < 86400000) return 'in ' + Math.floor(diff / 3600000) + 'h';
+    return 'in ' + Math.floor(diff / 86400000) + 'd';
+  }
+
+  function copyText(text, label) {
+    navigator.clipboard.writeText(text).then(
+      function() { toast(label + ' copied'); },
+      function() { toast('Clipboard unavailable', 'error'); }
+    );
+  }
+
+  // --- Time display ---
+  document.querySelectorAll('.site-time').forEach(function(el) {
+    var last = el.dataset.last;
+    var next = el.dataset.next;
+    var parts = [];
+    if (last) parts.push(relTime(last));
+    if (next) parts.push('next ' + nextRelTime(next));
+    el.textContent = parts.join(' · ');
+  });
+
+  // --- View toggle ---
+  var VIEW_KEY = 'indexnow.dashboard.view';
+  var cardsView = document.getElementById('cards-view');
+  var tableView = document.getElementById('table-view');
+  var viewCardsBtn = document.getElementById('view-cards');
+  var viewTableBtn = document.getElementById('view-table');
+  var currentView;
+  try { currentView = localStorage.getItem(VIEW_KEY) || 'table'; } catch(e) { currentView = 'table'; }
+
+  function setView(v) {
+    currentView = v;
+    try { localStorage.setItem(VIEW_KEY, v); } catch(e) {}
+    if (v === 'cards') {
+      cardsView.classList.remove('hidden');
+      tableView.classList.add('hidden');
+      viewCardsBtn.className = viewCardsBtn.className.replace(/bg-\w+/g, '') + ' bg-secondary';
+      viewTableBtn.className = viewTableBtn.className.replace(/ bg-secondary/g, '');
+    } else {
+      cardsView.classList.add('hidden');
+      tableView.classList.remove('hidden');
+      viewTableBtn.className = viewTableBtn.className.replace(/bg-\w+/g, '') + ' bg-secondary';
+      viewCardsBtn.className = viewCardsBtn.className.replace(/ bg-secondary/g, '');
+    }
+  }
+  setView(currentView);
+
+  viewCardsBtn.addEventListener('click', function() { setView('cards'); });
+  viewTableBtn.addEventListener('click', function() { setView('table'); });
+
+  // --- Filter + Search ---
+  var activeLevel = 'all';
+  var activeStatus = 'all';
+  var searchQ = '';
+  var sortKey = 'name';
+
+  function getAllItems() {
+    return Array.from(document.querySelectorAll('.site-card, .site-row'));
+  }
+
+  function applyFilters() {
+    var items = getAllItems();
+    var lower = searchQ.toLowerCase();
+    var shownCards = 0;
+    items.forEach(function(el) {
+      var name = el.dataset.name;
+      var host = el.dataset.host;
+      var level = el.dataset.level;
+      var pending = parseInt(el.dataset.pending);
+      var verified = el.dataset.verified === '1';
+      var status = el.dataset.status;
+      var show = true;
+      if (lower && (name + ' ' + host).indexOf(lower) === -1) show = false;
+      if (activeLevel !== 'all' && level !== activeLevel) show = false;
+      if (activeStatus === 'pending' && pending === 0) show = false;
+      if (activeStatus === 'verified' && !verified) show = false;
+      if (activeStatus === 'unverified' && verified) show = false;
+      if (activeStatus === 'errors' && status !== 'error') show = false;
+      if (show) el.classList.remove('hidden'); else el.classList.add('hidden');
+      if (show && el.classList.contains('site-card')) shownCards++;
+    });
+    var total = SITES_DATA.length;
+    var countEl = document.getElementById('showing-count');
+    if (countEl) countEl.textContent = 'Showing ' + shownCards + ' of ' + total + ' sites';
+
+    var clearBtn = document.getElementById('clear-filters');
+    if (clearBtn) {
+      var showClear = searchQ || activeLevel !== 'all' || activeStatus !== 'all';
+      if (showClear) clearBtn.classList.remove('hidden'); else clearBtn.classList.add('hidden');
+    }
+
+    // Update filter pill styles
+    document.querySelectorAll('.filter-pill').forEach(function(btn) {
+      var isActive = btn.dataset.level === activeLevel && btn.dataset.status === activeStatus;
+      if (isActive) {
+        btn.className = btn.className.replace('text-muted-foreground hover:text-foreground', 'bg-background text-foreground shadow-sm');
+        if (!btn.className.includes('bg-background')) btn.className += ' bg-background text-foreground shadow-sm';
+      } else {
+        btn.className = btn.className.replace('bg-background text-foreground shadow-sm', '').replace('bg-background', '');
+        if (!btn.className.includes('text-muted-foreground')) btn.className += ' text-muted-foreground hover:text-foreground';
+      }
+    });
+  }
+
+  // Filter pills
+  document.querySelectorAll('.filter-pill').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      activeLevel = btn.dataset.level;
+      activeStatus = btn.dataset.status;
+      applyFilters();
+    });
+  });
+
+  // KPI card clicks
+  document.querySelectorAll('.kpi-card').forEach(function(card) {
+    card.addEventListener('click', function() {
+      activeLevel = card.dataset.filterLevel;
+      activeStatus = card.dataset.filterStatus;
+      applyFilters();
+    });
+  });
+
+  // Search
+  var searchInput = document.getElementById('search-input');
+  var searchTimer;
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function() {
+        searchQ = searchInput.value.trim();
+        applyFilters();
+      }, 200);
+    });
+  }
+
+  // Sort
+  var sortSelect = document.getElementById('sort-select');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', function() {
+      sortKey = sortSelect.value;
+      sortItems();
+    });
+  }
+
+  function sortItems() {
+    [cardsView, tableView.querySelector('tbody')].forEach(function(container) {
+      if (!container) return;
+      var items = Array.from(container.children).filter(function(el) {
+        return el.dataset && el.dataset.id;
+      });
+      items.sort(function(a, b) {
+        switch (sortKey) {
+          case 'name': return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+          case 'pending': return parseInt(b.dataset.pending) - parseInt(a.dataset.pending);
+          case 'lastSubmit': return (b.dataset.lastSubmit || '0').localeCompare(a.dataset.lastSubmit || '0');
+          case 'created': return (b.dataset.created || '0').localeCompare(a.dataset.created || '0');
+          default: return 0;
+        }
+      });
+      items.forEach(function(el) { container.appendChild(el); });
+    });
+  }
+
+  // Clear filters
+  var clearBtn = document.getElementById('clear-filters');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() {
+      searchQ = '';
+      activeLevel = 'all';
+      activeStatus = 'all';
+      if (searchInput) searchInput.value = '';
+      applyFilters();
+    });
+  }
+
+  applyFilters();
+
+  // --- Selection ---
+  function updateBulkBar() {
+    var bar = document.getElementById('bulk-bar');
+    var count = document.getElementById('bulk-count');
+    if (selected.size > 0) {
+      bar.classList.remove('hidden');
+      count.textContent = selected.size + ' selected';
+    } else {
+      bar.classList.add('hidden');
+    }
+  }
+
+  document.addEventListener('change', function(e) {
+    if (!e.target.classList.contains('site-checkbox')) return;
+    var id = e.target.dataset.id;
+    if (e.target.checked) selected.add(id);
+    else selected.delete(id);
+    // Sync all checkboxes with same id
+    document.querySelectorAll('.site-checkbox[data-id="' + id + '"]').forEach(function(cb) {
+      cb.checked = selected.has(id);
+    });
+    updateBulkBar();
+  });
+
+  var selectAll = document.getElementById('select-all');
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      document.querySelectorAll('.site-row:not([hidden]) .site-checkbox').forEach(function(cb) {
+        var id = cb.dataset.id;
+        if (selectAll.checked) selected.add(id);
+        else selected.delete(id);
+        cb.checked = selectAll.checked;
+      });
+      // Sync card checkboxes
+      document.querySelectorAll('.site-card .site-checkbox').forEach(function(cb) {
+        cb.checked = selected.has(cb.dataset.id);
+      });
+      updateBulkBar();
+    });
+  }
+
+  document.getElementById('bulk-clear').addEventListener('click', function() {
+    selected.clear();
+    document.querySelectorAll('.site-checkbox').forEach(function(cb) { cb.checked = false; });
+    if (selectAll) selectAll.checked = false;
+    updateBulkBar();
+  });
+
+  // --- Actions ---
+  function reloadPage() { window.location.reload(); }
+
+  document.addEventListener('click', function(e) {
+    var btn;
+
+    // Submit
+    btn = e.target.closest('.submit-btn');
+    if (btn && !btn.disabled) {
+      var id = btn.dataset.id;
+      btn.disabled = true;
+      api('/sites/' + id + '/submit', { method: 'POST' })
+        .then(function(r) {
+          if (r.status === 'success') toast(r.urlCount + ' URLs submitted');
+          else if (r.status === 'no_changes') toast('No new URLs', 'info');
+          else toast(r.detail || 'Failed', 'error');
+          reloadPage();
+        })
+        .catch(function(err) { toast(err.message, 'error'); btn.disabled = false; });
+      return;
+    }
+
+    // Sync
+    btn = e.target.closest('.sync-btn');
+    if (btn) {
+      var id = btn.dataset.id;
+      btn.disabled = true;
+      api('/sites/' + id + '/sync', { method: 'POST' })
+        .then(function() { toast('Sitemap synced'); reloadPage(); })
+        .catch(function(err) { toast(err.message, 'error'); btn.disabled = false; });
+      return;
+    }
+
+    // Verify
+    btn = e.target.closest('.verify-btn');
+    if (btn) {
+      var id = btn.dataset.id;
+      btn.disabled = true;
+      api('/sites/' + id + '/verify-key', { method: 'POST' })
+        .then(function(r) {
+          if (r.found) toast('Key verified');
+          else toast('Key not found (HTTP ' + r.statusCode + ')', 'error');
+          reloadPage();
+        })
+        .catch(function(err) { toast(err.message, 'error'); btn.disabled = false; });
+      return;
+    }
+
+    // Copy webhook
+    btn = e.target.closest('.copy-hook-btn');
+    if (btn) {
+      copyText(location.origin + '/hook/' + btn.dataset.id, 'Webhook endpoint');
+      return;
+    }
+
+    // More menu
+    btn = e.target.closest('.more-btn');
+    if (btn) {
+      openContextMenu(btn, btn.dataset.id);
+      return;
+    }
+
+    // Key dialog
+    btn = e.target.closest('.key-btn');
+    if (btn) {
+      openKeyDialog(btn.dataset.id, btn.dataset.host, btn.dataset.key, btn.dataset.name, btn.dataset.verified === '1');
+      return;
+    }
+  });
+
+  // Bulk actions
+  document.querySelectorAll('.bulk-action').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var action = btn.dataset.action;
+      var ids = Array.from(selected);
+      if (ids.length === 0) return;
+
+      if (action === 'delete') {
+        openDeleteDialog(ids);
+        return;
+      }
+
+      var i = 0;
+      function next() {
+        if (i >= ids.length) {
+          toast((action === 'submit' ? 'Submitted' : action === 'sync' ? 'Synced' : 'Verified') + ' ' + ids.length + ' sites');
+          reloadPage();
+          return;
+        }
+        var id = ids[i++];
+        var url = action === 'submit' ? '/sites/' + id + '/submit' :
+                  action === 'sync' ? '/sites/' + id + '/sync' :
+                  '/sites/' + id + '/verify-key';
+        api(url, { method: 'POST' }).catch(function() {}).then(function() {
+          setTimeout(next, 400);
+        });
+      }
+      next();
+    });
+  });
+
+  // Submit All pending
+  var submitAllBtn = document.getElementById('btn-submit-all');
+  if (submitAllBtn) {
+    submitAllBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var pendingSites = SITES_DATA.filter(function(s) { return s.urlCounts.pending > 0 && s.keyVerified; });
+      if (pendingSites.length === 0) return;
+      submitAllBtn.disabled = true;
+      var i = 0;
+      function next() {
+        if (i >= pendingSites.length) {
+          toast('Submitted ' + pendingSites.length + ' sites');
+          reloadPage();
+          return;
+        }
+        api('/sites/' + pendingSites[i++].id + '/submit', { method: 'POST' }).catch(function() {}).then(function() {
+          setTimeout(next, 400);
+        });
+      }
+      next();
+    });
+  }
+
+  // --- Context menu ---
+  var ctxMenu = document.getElementById('context-menu');
+  var ctxSiteId = null;
+
+  function openContextMenu(anchor, siteId) {
+    ctxSiteId = siteId;
+    var site = SITES_DATA.find(function(s) { return s.id === siteId; });
+    var rect = anchor.getBoundingClientRect();
+    ctxMenu.style.top = (rect.bottom + 4) + 'px';
+    ctxMenu.style.left = Math.min(rect.left, window.innerWidth - 180) + 'px';
+    ctxMenu.classList.remove('hidden');
+    document.getElementById('ctx-browse').href = '/site/' + siteId;
+    var hookBtn = document.getElementById('ctx-copy-hook');
+    if (site && site.submissionLevel === 'webhook') {
+      hookBtn.classList.remove('hidden');
+    } else {
+      hookBtn.classList.add('hidden');
+    }
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!ctxMenu.contains(e.target) && !e.target.closest('.more-btn')) ctxMenu.classList.add('hidden');
+  });
+
+  document.getElementById('ctx-verify').addEventListener('click', function() {
+    ctxMenu.classList.add('hidden');
+    if (!ctxSiteId) return;
+    api('/sites/' + ctxSiteId + '/verify-key', { method: 'POST' })
+      .then(function(r) { toast(r.found ? 'Key verified' : 'Key not found', r.found ? undefined : 'error'); reloadPage(); })
+      .catch(function(err) { toast(err.message, 'error'); });
+  });
+
+  document.getElementById('ctx-edit').addEventListener('click', function() {
+    ctxMenu.classList.add('hidden');
+    if (!ctxSiteId) return;
+    var site = SITES_DATA.find(function(s) { return s.id === ctxSiteId; });
+    if (site) openSiteDialog(site);
+  });
+
+  document.getElementById('ctx-delete').addEventListener('click', function() {
+    ctxMenu.classList.add('hidden');
+    if (ctxSiteId) openDeleteDialog([ctxSiteId]);
+  });
+
+  document.getElementById('ctx-copy-hook').addEventListener('click', function() {
+    ctxMenu.classList.add('hidden');
+    if (!ctxSiteId) return;
+    var url = location.origin + '/hook/' + ctxSiteId;
+    navigator.clipboard.writeText(url).then(
+      function() { toast('Webhook URL copied'); },
+      function() { toast('Clipboard unavailable', 'error'); }
+    );
+  });
+
+  document.getElementById('ctx-log').addEventListener('click', function() {
+    ctxMenu.classList.add('hidden');
+    if (!ctxSiteId) return;
+    openLogDialog(ctxSiteId);
+  });
+
+  // --- Submission log dialog ---
+  var logDialog = document.getElementById('log-dialog');
+  document.getElementById('log-dialog-close').addEventListener('click', function() { logDialog.close(); });
+
+  function openLogDialog(siteId) {
+    var site = SITES_DATA.find(function(s) { return s.id === siteId; });
+    if (!site) return;
+    document.getElementById('log-dialog-title').textContent = 'Submission Log: ' + site.name;
+    document.getElementById('log-dialog-desc').textContent = 'Last 50 runs for ' + site.host;
+    document.getElementById('log-body').innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-muted-foreground">Loading...</td></tr>';
+    document.getElementById('log-empty').classList.add('hidden');
+    document.getElementById('log-table-wrap').classList.remove('hidden');
+    logDialog.showModal();
+    api('/sites/' + siteId + '/submissions')
+      .then(function(rows) {
+        if (!rows.length) {
+          document.getElementById('log-table-wrap').classList.add('hidden');
+          document.getElementById('log-empty').classList.remove('hidden');
+          return;
+        }
+        var html = rows.map(function(r) {
+          var statusCls = r.status === 'error' ? 'text-destructive' : r.status === 'success' ? 'text-emerald-600' : 'text-muted-foreground';
+          var detail = r.detail || (r.status === 'no_changes' ? 'No pending URLs' : '');
+          return '<tr class="border-b last:border-0">'
+            + '<td class="px-3 py-2 whitespace-nowrap text-xs">' + new Date(r.createdAt).toLocaleString() + '</td>'
+            + '<td class="px-3 py-2"><span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ' + statusCls + ' bg-current/10">' + r.status.replace('_', ' ') + '</span></td>'
+            + '<td class="px-3 py-2 text-right tabular-nums">' + (r.urlCount || 0) + '</td>'
+            + '<td class="px-3 py-2 text-xs text-muted-foreground max-w-xs truncate">' + (detail.length > 100 ? detail.slice(0, 100) + '...' : detail) + '</td>'
+            + '</tr>';
+        }).join('');
+        document.getElementById('log-body').innerHTML = html;
+      })
+      .catch(function(err) { toast(err.message, 'error'); logDialog.close(); });
+  }
+
+  // --- Site dialog ---
+  var siteDialog = document.getElementById('site-dialog');
+  var siteForm = document.getElementById('site-form');
+  var hostInput = document.getElementById('site-host');
+  var nameInput = document.getElementById('site-name');
+
+  document.getElementById('btn-add-site').addEventListener('click', function() { openSiteDialog(null); });
+  document.querySelectorAll('.add-site-trigger').forEach(function(btn) {
+    btn.addEventListener('click', function() { openSiteDialog(null); });
+  });
+
+  function openSiteDialog(site) {
+    var isEdit = !!site;
+    document.getElementById('site-dialog-title').textContent = isEdit ? 'Edit Site' : 'Add Site';
+    document.getElementById('site-edit-id').value = isEdit ? site.id : '';
+    hostInput.value = isEdit ? site.host : '';
+    nameInput.value = isEdit ? site.name : '';
+    document.getElementById('site-sitemap').value = isEdit ? site.sitemapUrl : '';
+    document.getElementById('site-level').value = isEdit ? site.submissionLevel : 'manual';
+    document.getElementById('site-cron').value = isEdit ? (site.cronInterval || 'daily') : 'daily';
+    document.getElementById('cron-field').classList.toggle('hidden', !(isEdit && site.submissionLevel === 'scheduled'));
+    document.getElementById('site-apikey').value = isEdit ? site.apiKey : '';
+    document.getElementById('apikey-field').classList.toggle('hidden', !isEdit);
+    var deleteBtn = document.getElementById('btn-delete-from-edit');
+    if (isEdit) deleteBtn.classList.remove('hidden'); else deleteBtn.classList.add('hidden');
+    document.getElementById('site-form-error').classList.add('hidden');
+    siteDialog.showModal();
+  }
+
+  hostInput.addEventListener('blur', function() {
+    if (!nameInput.value && hostInput.value) {
+      nameInput.value = hostInput.value.replace(/^www\./, '');
+    }
+  });
+
+  document.getElementById('site-level').addEventListener('change', function() {
+    document.getElementById('cron-field').classList.toggle('hidden', this.value !== 'scheduled');
+  });
+
+  document.getElementById('site-dialog-cancel').addEventListener('click', function() {
+    siteDialog.close();
+  });
+
+  document.getElementById('btn-delete-from-edit').addEventListener('click', function() {
+    var editId = document.getElementById('site-edit-id').value;
+    if (!editId) return;
+    siteDialog.close();
+    openDeleteDialog([editId]);
+  });
+
+  // Discover sitemap
+  document.getElementById('discover-btn').addEventListener('click', function() {
+    var host = hostInput.value.trim();
+    if (!host) return;
+    var url = host.includes('://') ? host : 'https://' + host;
+    var statusEl = document.getElementById('discover-status');
+    statusEl.textContent = 'Discovering...';
+    statusEl.classList.remove('hidden');
+    api('/sites/discover', { method: 'POST', body: JSON.stringify({ url: url }) })
+      .then(function(r) {
+        if (r.sitemaps && r.sitemaps.length > 0) {
+          document.getElementById('site-sitemap').value = r.sitemaps[0];
+          statusEl.textContent = 'Found ' + r.sitemaps.length + ' sitemap(s)';
+        } else {
+          statusEl.textContent = 'No sitemaps found';
+        }
+      })
+      .catch(function(err) {
+        statusEl.textContent = err.message;
+      });
+  });
+
+  siteForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var editId = document.getElementById('site-edit-id').value;
+    var body = {
+      name: nameInput.value.trim(),
+      host: hostInput.value.trim(),
+      sitemapUrl: document.getElementById('site-sitemap').value.trim(),
+      submissionLevel: document.getElementById('site-level').value,
+    };
+    if (body.submissionLevel === 'scheduled') {
+      body.cronInterval = document.getElementById('site-cron').value;
+    }
+    var apiKeyVal = document.getElementById('site-apikey').value.trim();
+    if (apiKeyVal) body.apiKey = apiKeyVal;
+    var errEl = document.getElementById('site-form-error');
+    var url = editId ? '/sites/' + editId : '/sites';
+    var method = editId ? 'PATCH' : 'POST';
+    api(url, { method: method, body: JSON.stringify(body) })
+      .then(function() {
+        siteDialog.close();
+        toast(editId ? 'Site updated' : 'Site added');
+        reloadPage();
+      })
+      .catch(function(err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('hidden');
+      });
+  });
+
+  // --- Key dialog ---
+  var keyDialog = document.getElementById('key-dialog');
+  var keyDialogSiteId = null;
+
+  function openKeyDialog(id, host, apiKey, name, verified) {
+    keyDialogSiteId = id;
+    document.getElementById('key-dialog-title').textContent = name + ': IndexNow Key';
+    document.getElementById('key-dialog-desc').innerHTML = 'Deploy your key file at <code class="rounded bg-muted px-1 font-mono text-xs">https://' + host + '/' + apiKey + '.txt</code>';
+    document.getElementById('key-file-content').textContent = apiKey;
+    document.getElementById('key-filename').textContent = apiKey + '.txt';
+    var badge = document.getElementById('key-status-badge');
+    if (verified) {
+      badge.innerHTML = '<span class="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 px-1.5 h-5 text-xs font-medium text-emerald-600 dark:text-emerald-400"><svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Key Verified</span>';
+    } else {
+      badge.innerHTML = '<span class="inline-flex items-center rounded-md border px-1.5 h-5 text-xs font-normal">Unverified</span>';
+    }
+    keyDialog.showModal();
+  }
+
+  document.getElementById('key-copy').addEventListener('click', function() {
+    var key = document.getElementById('key-file-content').textContent;
+    copyText(key, 'IndexNow Key');
+  });
+
+  document.getElementById('key-reverify').addEventListener('click', function() {
+    if (!keyDialogSiteId) return;
+    var btn = document.getElementById('key-reverify');
+    btn.textContent = 'Checking...';
+    btn.disabled = true;
+    api('/sites/' + keyDialogSiteId + '/verify-key', { method: 'POST' })
+      .then(function(r) {
+        btn.textContent = 'Re-verify';
+        btn.disabled = false;
+        var badge = document.getElementById('key-status-badge');
+        if (r.found) {
+          badge.innerHTML = '<span class="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 px-1.5 h-5 text-xs font-medium text-emerald-600 dark:text-emerald-400">Key Verified</span>';
+          toast('Key verified');
+        } else {
+          badge.innerHTML = '<span class="inline-flex items-center gap-1 rounded-md border border-amber-500/30 px-1.5 h-5 text-xs font-medium text-amber-600 dark:text-amber-400">Key Missing</span>';
+          toast('Key not found (HTTP ' + r.statusCode + ')', 'error');
+        }
+      })
+      .catch(function(err) { btn.textContent = 'Re-verify'; btn.disabled = false; toast(err.message, 'error'); });
+  });
+
+  document.getElementById('key-dialog-close').addEventListener('click', function() {
+    keyDialog.close();
+  });
+
+  // --- Delete dialog ---
+  var deleteDialog = document.getElementById('delete-dialog');
+  var deleteIds = [];
+
+  function openDeleteDialog(ids) {
+    deleteIds = ids;
+    var sites = ids.map(function(id) { return SITES_DATA.find(function(s) { return s.id === id; }); }).filter(Boolean);
+    document.getElementById('delete-dialog-title').textContent = 'Delete ' + sites.length + ' site' + (sites.length > 1 ? 's' : '') + '?';
+    var list = document.getElementById('delete-list');
+    list.innerHTML = '<ul class="divide-y">' + sites.map(function(s) {
+      return '<li class="px-3 py-2 text-sm"><div class="font-medium">' + s.name + '</div><div class="text-xs text-muted-foreground">' + s.host + '</div></li>';
+    }).join('') + '</ul>';
+    deleteDialog.showModal();
+  }
+
+  document.getElementById('delete-cancel').addEventListener('click', function() {
+    deleteDialog.close();
+  });
+
+  document.getElementById('delete-confirm').addEventListener('click', function() {
+    var btn = document.getElementById('delete-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Deleting...';
+    var i = 0;
+    function next() {
+      if (i >= deleteIds.length) {
+        deleteDialog.close();
+        toast('Deleted ' + deleteIds.length + ' site(s)');
+        reloadPage();
+        return;
+      }
+      api('/sites/' + deleteIds[i++], { method: 'DELETE' }).catch(function() {}).then(next);
+    }
+    next();
+  });
+
+  // --- Cron polling ---
+  var cronBanner = document.getElementById('cron-banner');
+  setInterval(function() {
+    if (document.hidden) return;
+    fetch('/api/cron/status').then(function(r) { return r.json(); }).then(function(p) {
+      if (!p.interval) {
+        if (cronBanner) cronBanner.hidden = true;
+        return;
+      }
+      // If no banner exists yet, reload to get it server-rendered
+      if (!cronBanner) { reloadPage(); return; }
+      cronBanner.hidden = false;
+    }).catch(function() {});
+  }, 4000);
+
+  // Close dialogs on backdrop click
+  [siteDialog, keyDialog, deleteDialog, logDialog].forEach(function(d) {
+    d.addEventListener('click', function(e) {
+      if (e.target === d) d.close();
+    });
+  });
+})();
+</script>

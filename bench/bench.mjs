@@ -197,6 +197,23 @@ async function main() {
     expectOk(await api(`/api/sites/${biggestSite.id}/urls?limit=100&offset=50000`))
   })
 
+  // Page render benchmarks (SSR HTML responses)
+  await phase('page_dashboard', N(50), async () => {
+    expectOk(await api('/'))
+  })
+
+  await phase('page_site_urls', N(50), async () => {
+    expectOk(await api(`/site/${siteId}`))
+  })
+
+  await phase('page_settings', N(50), async () => {
+    expectOk(await api('/settings'))
+  })
+
+  await phase('page_changelog', N(50), async () => {
+    expectOk(await api('/changelog'))
+  })
+
   const result = {
     label,
     base,

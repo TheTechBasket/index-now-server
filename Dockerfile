@@ -35,6 +35,7 @@ COPY --from=builder /app/package.json ./
 # CHANGELOG.md feeds the in-app /changelog page (read by src/server/changelog.ts)
 COPY --from=builder /app/CHANGELOG.md ./
 COPY --from=builder /app/src/server ./src/server
+COPY --from=builder /app/src/client/assets ./src/client/assets
 COPY --from=builder /app/tsconfig.json ./
 
 # Create data directory with correct permissions
