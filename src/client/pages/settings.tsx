@@ -1,4 +1,4 @@
-import { Check, Copy, Key, RefreshCw, Send, Terminal } from 'lucide-react'
+import { Bot, Check, Code, Copy, Key, RefreshCw, Send, Terminal } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -302,6 +302,145 @@ export function SettingsPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* API & MCP Reference */}
+      <div className="mt-8 space-y-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Code className="size-4 text-primary" /> API Endpoints
+            </CardTitle>
+            <CardDescription>
+              All <code>/api/*</code> endpoints require auth: session cookie or <code>Authorization: Bearer &lt;API_TOKEN&gt;</code> header.
+              Set <code>API_TOKEN</code> in <code>.env</code> for programmatic access.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="pb-2 pr-3 font-medium">Method</th>
+                    <th className="pb-2 pr-3 font-medium">Path</th>
+                    <th className="pb-2 font-medium">Description</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {[
+                    ['GET', '/api/sites', 'List all sites with URL counts and submission status'],
+                    ['GET', '/api/sites/:id', 'Single site with full stats'],
+                    ['POST', '/api/sites', 'Add a site (body: name, host, sitemapUrl)'],
+                    ['PATCH', '/api/sites/:id', 'Update site settings'],
+                    ['DELETE', '/api/sites/:id', 'Remove a site and all its URLs'],
+                    ['POST', '/api/sites/:id/sync', 'Refresh URLs from sitemap'],
+                    ['POST', '/api/sites/:id/submit', 'Submit pending URLs to search engines'],
+                    ['POST', '/api/sites/:id/verify-key', 'Check key file deployment'],
+                    ['POST', '/api/sites/:id/rotate-key', 'Generate new IndexNow key'],
+                    ['GET', '/api/sites/:id/urls', 'Paginated URL list (query: q, status, limit, offset)'],
+                    ['GET', '/api/sites/:id/submissions', 'Submission history'],
+                    ['POST', '/api/sites/:id/urls/reset', 'Reset all URL statuses to pending'],
+                    ['POST', '/api/sites/discover', 'Auto-discover sitemaps from a domain'],
+                    ['GET', '/api/cron/status', 'Current cron job progress'],
+                    ['GET', '/api/settings', 'App settings'],
+                    ['PUT', '/api/settings', 'Update settings'],
+                    ['POST', '/hook/:siteId', 'Public webhook trigger (X-Webhook-Secret header)'],
+                  ].map(([method, path, desc]) => (
+                    <tr key={`${method}-${path}`}>
+                      <td className="py-1.5 pr-3">
+                        <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0">{method}</Badge>
+                      </td>
+                      <td className="py-1.5 pr-3 font-mono text-[11px] whitespace-nowrap">{path}</td>
+                      <td className="py-1.5 text-muted-foreground">{desc}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bot className="size-4 text-primary" /> MCP Server
+            </CardTitle>
+            <CardDescription>
+              Connect AI agents via <a href="https://modelcontextprotocol.io/" target="_blank" rel="noreferrer" className="underline hover:text-foreground">Model Context Protocol</a>.
+              Runs over stdio, reads the database directly.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5 rounded-lg border bg-muted/40 p-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-foreground">
+                  <Terminal className="size-3.5" /> Claude / Cursor config
+                </span>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => {
+                    const config = JSON.stringify({
+                      mcpServers: {
+                        indexnow: {
+                          command: 'pnpm',
+                          args: ['mcp'],
+                          cwd: '/path/to/index-now-server',
+                          env: { DATABASE_PATH: './data/indexnow.db' },
+                        },
+                      },
+                    }, null, 2)
+                    navigator.clipboard.writeText(config)
+                    toast.success('MCP config copied')
+                  }}
+                  className="h-6 gap-1 text-[11px]"
+                >
+                  <Copy className="size-3" /> Copy
+                </Button>
+              </div>
+              <pre className="overflow-x-auto text-[11px] leading-relaxed text-muted-foreground">
+                <code>{`{
+  "mcpServers": {
+    "indexnow": {
+      "command": "pnpm",
+      "args": ["mcp"],
+      "cwd": "/path/to/index-now-server",
+      "env": { "DATABASE_PATH": "./data/indexnow.db" }
+    }
+  }
+}`}</code>
+              </pre>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="pb-2 pr-3 font-medium">Tool</th>
+                    <th className="pb-2 font-medium">Description</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {[
+                    ['get_overview', 'Full project state: all sites, cron, settings, version, API reference. Call first.'],
+                    ['get_site_detail', 'One site: config, URL counts, recent submissions, errors, key status'],
+                    ['add_site', 'Add a site (auto-discovers sitemap from robots.txt)'],
+                    ['update_site', 'Change submission level, cron interval, sitemap URL, name'],
+                    ['verify_key', 'Check key deployment, returns setup instructions if not deployed'],
+                    ['submit_urls', 'Submit pending URLs to search engines'],
+                    ['sync_sitemap', 'Refresh URLs from sitemap without submitting'],
+                    ['get_site_urls', 'Browse/search URLs with status filter and pagination'],
+                  ].map(([tool, desc]) => (
+                    <tr key={tool}>
+                      <td className="py-1.5 pr-3 font-mono text-[11px] whitespace-nowrap">{tool}</td>
+                      <td className="py-1.5 text-muted-foreground">{desc}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </>
   )
