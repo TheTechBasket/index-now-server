@@ -46,7 +46,7 @@ export function KeyFileHelper({ host, apiKey, compact = false, className }: Prop
     try {
       await navigator.clipboard.writeText(content)
       setCopiedFile(true)
-      toast.success('Key file content copied — paste into a new file')
+      toast.success('Key file content copied. Paste into a new file')
       setTimeout(() => setCopiedFile(false), 1500)
     } catch {
       toast.error('Clipboard unavailable')

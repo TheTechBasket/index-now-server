@@ -65,7 +65,7 @@ export async function sendDiscord(
     body: JSON.stringify({
       embeds: [
         {
-          title: `IndexNow — ${event}`,
+          title: `IndexNow: ${event}`,
           color,
           fields: embedFields,
           timestamp: new Date().toISOString(),

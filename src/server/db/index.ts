@@ -52,7 +52,7 @@ if (unfilled.n > 0) {
 }
 
 /** Flush the WAL back into the main db file. Large sitemap syncs can write tens of
- * thousands of rows in one go — call this after so the WAL doesn't grow unbounded
+ * thousands of rows in one go. Call this after so the WAL doesn't grow unbounded
  * and degrade every subsequent read (reads have to merge WAL frames). */
 export function checkpoint() {
   sqlite.pragma('wal_checkpoint(TRUNCATE)')

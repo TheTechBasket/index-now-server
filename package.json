@@ -1,7 +1,7 @@
 {
   "name": "index-now-server",
-  "version": "0.6.0",
-  "description": "Self-hosted IndexNow submission manager — keys, sitemaps, schedules, one dashboard.",
+  "version": "0.7.0",
+  "description": "Self-hosted IndexNow submission manager: keys, sitemaps, schedules, one dashboard.",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -9,12 +9,14 @@
     "build": "vite build",
     "start": "NODE_ENV=production tsx src/server/index.ts",
     "test": "vitest run",
+    "mcp": "node --import tsx src/server/mcp.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@fastify/compress": "^9.2.0",
     "@fastify/vite": "^9.1.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^12.11.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -28,7 +30,8 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.6.4"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.2",

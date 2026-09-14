@@ -8,12 +8,12 @@ import { runSubmission } from './indexnow.ts'
 const SCHEDULES = {
   hourly: '0 * * * *',
   '6h': '0 */6 * * *',
-  daily: '0 3 * * *', // 3am — off-peak
+  daily: '0 3 * * *', // 3am, off-peak
   weekly: '0 3 * * 0', // 3am Sunday
   monthly: '0 3 1 * *', // 3am 1st of month
 } as const
 
-// Tunable gaps — prevents burst 403 / IndexNow rate-limit when many sites share a tick
+// Tunable gaps: prevents burst 403 / IndexNow rate-limit when many sites share a tick
 const INTER_SITE_DELAY_MS = Number(process.env.CRON_INTER_SITE_DELAY_MS ?? 2_000)
 const JITTER_MAX_MS = Number(process.env.CRON_JITTER_MAX_MS ?? 5_000)
 const BACKOFF_403_MS = Number(process.env.CRON_BACKOFF_403_MS ?? 10_000)
@@ -49,7 +49,7 @@ export function getCronProgress(): CronProgress {
   return { ...progress }
 }
 
-/** Next fire time for a fixed cron preset — the presets never change, so this is
+/** Next fire time for a fixed cron preset. The presets never change, so this is
  * computed directly instead of pulling in a cron-expression parser dependency. */
 export function nextRunFor(interval: keyof typeof SCHEDULES, from: Date = new Date()): Date {
   const d = new Date(from)
@@ -119,7 +119,7 @@ export function startCron() {
 }
 
 /**
- * Run all scheduled sites for an interval — strictly sequential, never parallel.
+ * Run all scheduled sites for an interval, strictly sequential, never parallel.
  * Each site sleeps `INTER_SITE_DELAY_MS + jitter + penalty` so N sites spread over minutes,
  * not milliseconds. A 403/429 on one site adds penalty before next site to respect WAF/rate-limit.
  */
@@ -173,10 +173,10 @@ async function runScheduledForInterval(interval: keyof typeof SCHEDULES) {
       // if detail hints 403/429, still add penalty even on scheduled error object
       if (result.status === 'error' && /\(403\)|\(429\)|429|403/.test(result.detail ?? '')) {
         penaltyMs = BACKOFF_403_MS
-        console.warn(c.yellow(`[cron] Rate-limited hint for ${site.name} — adding ${penaltyMs}ms penalty before next site`))
+        console.warn(c.yellow(`[cron] Rate-limited hint for ${site.name}, adding ${penaltyMs}ms penalty before next site`))
       }
     } catch (err) {
-      // runSubmission catches internally and returns {status:'error'} — this only fires on
+      // runSubmission catches internally and returns {status:'error'}. This only fires on
       // truly unexpected crashes (e.g. a throw outside runSubmission's try/catch).
       console.error(c.red(`[cron] Failed to submit ${site.name}:`), err)
       const msg = err instanceof Error ? err.message : String(err)

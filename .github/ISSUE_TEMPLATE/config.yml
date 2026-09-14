@@ -3,4 +3,4 @@ blank_issues_enabled: true
 contact_links:
   - name: Report a security vulnerability
     url: https://github.com/TheTechBasket/index-now-server/security/advisories/new
-    about: Don't open a public issue for security problems — open a private advisory instead. See SECURITY.md.
+    about: Don't open a public issue for security problems. Open a private advisory instead. See SECURITY.md.

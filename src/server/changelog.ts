@@ -35,7 +35,7 @@ export function readChangelog(): ChangelogVersion[] {
 
 const CURATED_HEADINGS = new Set(['fixed', 'performance', 'perf', 'added'])
 
-/** Fixes, performance, and new-feature items only — no Changed/Docs/Chore noise. */
+/** Fixes, performance, and new-feature items only. No Changed/Docs/Chore noise. */
 export function curatedChangelog(): { version: string; date: string; sections: ChangelogSection[] }[] {
   return readChangelog()
     .map((v) => ({

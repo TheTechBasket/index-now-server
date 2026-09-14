@@ -2,6 +2,18 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## [0.7.0] - 2026-09-14
+
+### Added
+- MCP (Model Context Protocol) server for AI agent integration (`pnpm mcp` via stdio transport).
+  Tools: `list_sites`, `get_site`, `get_site_urls`, `submit_site`, `sync_sitemap`, `get_submissions`, `get_cron_status`, `get_version`.
+  Resource: `indexnow://sites` for reading all site data.
+- `API_TOKEN` env var for programmatic API access via `Authorization: Bearer <token>` header.
+  Works alongside existing cookie-based session auth without breaking it.
+
+### Changed
+- Auth preHandler accepts Bearer token in addition to session cookie (non-breaking).
+
 ## [0.6.0] - 2026-09-14
 
 ### Added

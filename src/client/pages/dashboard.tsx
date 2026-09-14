@@ -202,7 +202,7 @@ export function Dashboard() {
         .then((p) => {
           if (cancelled) return
           setCronProgress(p.interval ? p : null)
-          if (wasRunning && !p.interval) reload() // batch just finished — refresh next-run/last-run
+          if (wasRunning && !p.interval) reload() // batch just finished, refresh next-run/last-run
           wasRunning = p.interval !== null
         })
         .catch(() => {})
@@ -356,7 +356,7 @@ export function Dashboard() {
       sites = sites.filter((s) => s.keyVerified)
     }
     if (sites.length === 0) {
-      if (skippedUnverified > 0) toast.error(`Skipped ${skippedUnverified} unverified site(s) — verify the key before submitting`)
+      if (skippedUnverified > 0) toast.error(`Skipped ${skippedUnverified} unverified site(s). Verify the key before submitting`)
       return
     }
     setBulkBusy(action)
@@ -802,7 +802,7 @@ export function Dashboard() {
                     <button
                       onClick={() => verifyOne(site)}
                       disabled={busy !== undefined}
-                      title={site.keyVerified ? 'Key verified — click to recheck' : 'Click to verify key'}
+                      title={site.keyVerified ? 'Key verified, click to recheck' : 'Click to verify key'}
                       aria-label={site.keyVerified ? 'Key verified, click to recheck' : 'Click to verify key'}
                       className="shrink-0"
                     >
@@ -1055,7 +1055,7 @@ export function Dashboard() {
                         <button
                           onClick={() => verifyOne(site)}
                           disabled={busy !== undefined}
-                          title={site.keyVerified ? 'Verified — recheck' : 'Verify key'}
+                          title={site.keyVerified ? 'Verified, recheck' : 'Verify key'}
                           aria-label={site.keyVerified ? 'Key verified, click to recheck' : 'Click to verify key'}
                         >
                           {site.keyVerified ? (
@@ -1177,7 +1177,7 @@ export function Dashboard() {
       )}
 
       <p className="mt-6 text-xs text-muted-foreground">
-        Host the key file at <code>https://&lt;host&gt;/&lt;key&gt;.txt</code> containing only the key string —
+        Host the key file at <code>https://&lt;host&gt;/&lt;key&gt;.txt</code> containing only the key string.
         IndexNow verifies ownership through it on every submission.
       </p>
 
@@ -1202,7 +1202,7 @@ export function Dashboard() {
       >
         <DialogContent className="sm:max-w-lg max-w-lg">
           <DialogHeader>
-            <DialogTitle>{keyDialogSite?.name} — IndexNow Key</DialogTitle>
+            <DialogTitle>{keyDialogSite?.name}: IndexNow Key</DialogTitle>
             <DialogDescription>
               Deploy your key file at <code className="rounded bg-muted px-1 font-mono text-xs">https://{keyDialogSite?.host}/{keyDialogSite?.apiKey}.txt</code>
             </DialogDescription>

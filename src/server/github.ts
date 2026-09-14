@@ -2,7 +2,7 @@ import { c } from './auth.ts'
 import { appVersion } from './version.ts'
 
 const REPO = 'TheTechBasket/index-now-server'
-const CHECK_INTERVAL_MS = 7 * 86_400_000 // weekly, per user request — avoids hammering the GitHub API
+const CHECK_INTERVAL_MS = 7 * 86_400_000 // weekly, per user request. Avoids hammering the GitHub API
 
 export type GithubStats = {
   stars: number
@@ -18,7 +18,7 @@ export type GithubStats = {
 let cached: GithubStats | null = null
 let cachedAt = 0
 
-/** Compares two "x.y.z" strings — true if `latest` is strictly newer than `current`. */
+/** Compares two "x.y.z" strings. True if `latest` is strictly newer than `current`. */
 function isNewer(latest: string, current: string): boolean {
   const a = latest.replace(/^v/, '').split('.').map(Number)
   const b = current.replace(/^v/, '').split('.').map(Number)
@@ -81,7 +81,7 @@ async function fetchGithubStats(): Promise<GithubStats> {
   }
 }
 
-/** Cached weekly — call as often as you like, only hits the GitHub API once per interval. */
+/** Cached weekly. Call as often as you like, only hits the GitHub API once per interval. */
 export async function getGithubStats(): Promise<GithubStats> {
   if (cached && Date.now() - cachedAt < CHECK_INTERVAL_MS) return cached
   const fresh = await fetchGithubStats()

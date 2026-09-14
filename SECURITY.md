@@ -3,7 +3,7 @@
 ## Supported versions
 
 Only the latest release on `main` is supported. There are no LTS branches
-and no backports — update to the latest version before reporting.
+and no backports. Update to the latest version before reporting.
 
 ## Reporting a vulnerability
 
@@ -35,8 +35,8 @@ These are operator concerns, not application bugs, but worth noting here:
   HTTPS to be secure.
 - **Restrict the port** to a private network or behind a reverse proxy.
   Don't expose port `3020` directly to the internet without TLS.
-- **Back up `./data/indexnow.db`** — it's the only state the app holds.
-- **Rotate IndexNow keys** if you suspect a leak — the dashboard has a
+- **Back up `./data/indexnow.db`**. It's the only state the app holds.
+- **Rotate IndexNow keys** if you suspect a leak. The dashboard has a
   per-site "Rotate key" action. Old keys stop working the moment the new
   key file is deployed.
 - **Don't commit `.env`.** It's in `.gitignore` already; keep it that way.

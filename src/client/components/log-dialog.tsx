@@ -36,7 +36,7 @@ export function LogDialog({ site, onClose }: { site: Site | null; onClose: () =>
     <Dialog open={!!site} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-3xl max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Submission Log — {site?.name}</DialogTitle>
+          <DialogTitle>Submission Log: {site?.name}</DialogTitle>
           <DialogDescription>Last 50 submission runs for {site?.host}</DialogDescription>
         </DialogHeader>
         <div className="max-h-[28rem] overflow-y-auto rounded-md border">
@@ -67,7 +67,7 @@ export function LogDialog({ site, onClose }: { site: Site | null; onClose: () =>
                       </Badge>
                     </TableCell>
                     <TableCell className="max-w-xs truncate text-xs text-muted-foreground" title={row.detail ?? ''}>
-                      {row.detail ?? '—'}
+                      {row.detail ?? '-'}
                     </TableCell>
                   </TableRow>
                 ))}

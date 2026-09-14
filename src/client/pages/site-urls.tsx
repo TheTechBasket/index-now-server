@@ -88,7 +88,7 @@ const statusVariant: Record<UrlStatus, 'default' | 'secondary' | 'destructive' |
 }
 
 function fmt(d: string | null) {
-  return d ? new Date(d).toLocaleString() : '—'
+  return d ? new Date(d).toLocaleString() : '-'
 }
 
 function copy(text: string, label: string) {
@@ -225,7 +225,7 @@ export function SiteUrlsPage({
       if (fresh.redirected && fresh.finalUrl && fresh.finalUrl !== site?.sitemapUrl) {
         setRedirectInfo({ from: site!.sitemapUrl, to: fresh.finalUrl })
       }
-      toast.success(`Synced — ${fresh.total} URLs, ${fresh.pending} pending`)
+      toast.success(`Synced: ${fresh.total} URLs, ${fresh.pending} pending`)
       load()
     } catch (err) {
       const e = err as Error & { suggestedSitemap?: string; finalUrl?: string }
@@ -478,7 +478,7 @@ export function SiteUrlsPage({
               <button
                 type="button"
                 onClick={verifyKey}
-                title={site.keyVerified ? 'Key Verified — click to re-check' : 'Key Unverified — click to check'}
+                title={site.keyVerified ? 'Key Verified, click to re-check' : 'Key Unverified, click to check'}
                 className="flex items-center gap-1 text-xs"
               >
                 {site.keyVerified ? (
@@ -820,7 +820,7 @@ export function SiteUrlsPage({
                 </TableCell>
                 {visibleCols.lastmod && (
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    {row.lastmod ?? '—'}
+                    {row.lastmod ?? '-'}
                   </TableCell>
                 )}
                 {visibleCols.lastSeen && (

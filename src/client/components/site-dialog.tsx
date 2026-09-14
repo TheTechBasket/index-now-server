@@ -131,7 +131,7 @@ function CreateForm({ onOpenChange, onSaved }: Pick<Props, 'onOpenChange' | 'onS
         setSelectedUrl(result.sitemapUrls[0])
       }
       if (result.sitemapUrls.length === 0) {
-        toast.info('No sitemap found — enter its URL below')
+        toast.info('No sitemap found, enter its URL below')
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Discovery failed')
@@ -277,7 +277,7 @@ function CreateForm({ onOpenChange, onSaved }: Pick<Props, 'onOpenChange' | 'onS
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Multiple sitemaps were detected. Pick the one you want to sync — typically the sitemap index if available.
+            Multiple sitemaps were detected. Pick the one you want to sync, typically the sitemap index if available.
           </p>
         </div>
       )}
@@ -409,7 +409,7 @@ export function SiteDialog({ site, open, onOpenChange, onSaved }: Props) {
           <DialogDescription>
             {site
               ? 'Update site details and submission policy.'
-              : 'Just the website URL — everything else is worked out for you.'}
+              : 'Just the website URL. Everything else is worked out for you.'}
           </DialogDescription>
         </DialogHeader>
         {site ? (

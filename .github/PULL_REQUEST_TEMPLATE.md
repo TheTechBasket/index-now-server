@@ -1,5 +1,5 @@
 <!--
-Thanks for the PR! Keep the scope tight — one feature or fix per PR.
+Thanks for the PR! Keep the scope tight: one feature or fix per PR.
 Run `pnpm exec tsc --noEmit && pnpm build` before pushing.
 -->
 
@@ -28,5 +28,5 @@ Run `pnpm exec tsc --noEmit && pnpm build` before pushing.
 ## Checklist
 
 - [ ] No secrets, API keys, or `AUTH_SECRET` values in the diff
-- [ ] Schema changes use `pnpm db:generate` — no hand-edited migrations
+- [ ] Schema changes use `pnpm db:generate`; no hand-edited migrations
 - [ ] Didn't bump `package.json` version (maintainers do that on release)

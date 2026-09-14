@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { and, desc, eq, like, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
-import { authEnabled, readSession } from '../auth.ts'
+import { authEnabled, checkApiToken, readSession } from '../auth.ts'
 import { db } from '../db/index.ts'
 import { settings, sites, siteUrls, submissions } from '../db/schema.ts'
 import {
@@ -66,6 +66,7 @@ export async function apiRoutes(app: FastifyInstance) {
   // Session guard for everything registered in this scope (skipped if auth disabled)
   app.addHook('preHandler', async (req, reply) => {
     if (!authEnabled) return
+    if (checkApiToken(req.headers.authorization)) return
     const email = readSession(req.headers.cookie)
     if (!email) return reply.code(401).send({ error: 'Unauthorized' })
   })
@@ -413,7 +414,7 @@ export async function apiRoutes(app: FastifyInstance) {
         .offset(offset)
         .all()
       const total = db.select({ n: sql<number>`count(*)` }).from(siteUrls).where(where).get()?.n ?? 0
-      // Warnings cover the whole URL set, not this page's filter/search — only worth the full-table
+      // Warnings cover the whole URL set, not this page's filter/search. Only worth the full-table
       // scan on the default (unfiltered, first-page) view where the banner is actually shown.
       const warnings = !q && !status && offset === 0 ? getSitemapWarnings(site) : undefined
 

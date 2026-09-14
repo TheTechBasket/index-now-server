@@ -14,13 +14,13 @@ const MAX_RETRIES = 3
 const BASE_BACKOFF_MS = 1_000
 
 // Dry-run: sitemap sync still hits the real site (read-only, safe), but the actual
-// IndexNow submission POST — the one thing that pushes data to a real external
-// service on the site's behalf — is skipped and simulated instead. For local dev
+// IndexNow submission POST (the one thing that pushes data to a real external
+// service on the site's behalf) is skipped and simulated instead. For local dev
 // against real site configs without notifying search engines for real.
 export const DRY_RUN = process.env.DRY_RUN === 'true'
-if (DRY_RUN) console.warn(c.yellow('[indexnow] DRY_RUN=true — IndexNow submissions are simulated, nothing is sent to api.indexnow.org'))
+if (DRY_RUN) console.warn(c.yellow('[indexnow] DRY_RUN=true, IndexNow submissions are simulated, nothing is sent to api.indexnow.org'))
 
-// Sitemap fetch tuning — env overridable, sequential gap prevents thundering herd
+// Sitemap fetch tuning: env overridable, sequential gap prevents thundering herd
 const SITEMAP_MAX_RETRIES = Number(process.env.SITEMAP_MAX_RETRIES ?? 3)
 const SITEMAP_BASE_BACKOFF_MS = Number(process.env.SITEMAP_BASE_BACKOFF_MS ?? 1_500)
 const SITEMAP_CHILD_CONCURRENCY = Number(process.env.SITEMAP_CHILD_CONCURRENCY ?? 3)
@@ -49,7 +49,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-// Rows-per-statement for bulk upserts — one multi-row INSERT..ON CONFLICT per chunk
+// Rows-per-statement for bulk upserts: one multi-row INSERT..ON CONFLICT per chunk
 // instead of one statement per row (large sites were doing 100k+ individual statements
 // per sync). Kept well under SQLite's default bound-parameter limit (999).
 const BULK_CHUNK = 100
@@ -92,7 +92,7 @@ async function fetchSitemapWithRetry(sitemapUrl: string): Promise<Response> {
       const waitMs = parseRetryAfterMs(retryAfter, base * Math.pow(2, attempt) + Math.random() * 500)
       lastErr = new SitemapFetchError(`Sitemap fetch failed (${res.status}): ${sitemapUrl}`, res.status)
       if (attempt < SITEMAP_MAX_RETRIES) {
-        console.warn(c.yellow(`[sitemap] ${res.status} for ${sitemapUrl} — retry ${attempt + 1}/${SITEMAP_MAX_RETRIES + 1} after ${waitMs}ms`))
+        console.warn(c.yellow(`[sitemap] ${res.status} for ${sitemapUrl}, retry ${attempt + 1}/${SITEMAP_MAX_RETRIES + 1} after ${waitMs}ms`))
         await sleep(waitMs)
         continue
       }
@@ -102,7 +102,7 @@ async function fetchSitemapWithRetry(sitemapUrl: string): Promise<Response> {
       lastErr = err instanceof Error ? err : new Error(String(err))
       if (attempt < SITEMAP_MAX_RETRIES) {
         const waitMs = SITEMAP_BASE_BACKOFF_MS * Math.pow(2, attempt) + Math.random() * 500
-        console.warn(c.yellow(`[sitemap] network error for ${sitemapUrl}: ${lastErr.message} — retry ${attempt + 1}/${SITEMAP_MAX_RETRIES + 1} after ${waitMs}ms`))
+        console.warn(c.yellow(`[sitemap] network error for ${sitemapUrl}: ${lastErr.message}, retry ${attempt + 1}/${SITEMAP_MAX_RETRIES + 1} after ${waitMs}ms`))
         await sleep(waitMs)
         continue
       }
@@ -279,7 +279,7 @@ type UrlCounts = Record<UrlStatus | 'total' | 'pending', number>
 
 const EMPTY_COUNTS: UrlCounts = { new: 0, updated: 0, submitted: 0, removed: 0, total: 0, pending: 0 }
 
-/** Batched form of urlCounts() — one grouped query for all sites instead of one
+/** Batched form of urlCounts(). One grouped query for all sites instead of one
  * query per site (dashboard load was doing 2N+1 queries for N sites). */
 export function urlCountsForSites(siteIds: string[]): Map<string, UrlCounts> {
   const result = new Map<string, UrlCounts>()
@@ -310,7 +310,7 @@ export function urlCountsForSites(siteIds: string[]): Map<string, UrlCounts> {
   return result
 }
 
-/** Batched "last submission per site" — one query for max id per site, one for
+/** Batched "last submission per site". One query for max id per site, one for
  * the rows, instead of one query per site. */
 export function latestSubmissionsForSites(siteIds: string[]): Map<string, typeof submissions.$inferSelect> {
   const result = new Map<string, typeof submissions.$inferSelect>()
@@ -479,7 +479,7 @@ async function suggestSitemapForSite(site: Site): Promise<string | undefined> {
   }
 }
 
-/** Fetch the sitemap and refresh URL rows — no submission. Returns fresh counts and sitemap count. */
+/** Fetch the sitemap and refresh URL rows (no submission). Returns fresh counts and sitemap count. */
 export async function syncSitemap(
   site: Site,
 ): Promise<ReturnType<typeof urlCounts> & { sitemapCount: number; redirected?: boolean; finalUrl?: string }> {
@@ -552,27 +552,27 @@ export async function syncSitemap(
 
 // Status codes IndexNow can return where a transient cause (WAF hiccup, propagation delay,
 // brief outage) is plausible enough to retry. 400/422 (bad request / URL-host mismatch) are
-// not here — retrying the same malformed request never helps.
+// not here. Retrying the same malformed request never helps.
 const RETRYABLE_STATUSES = new Set([403, 404, 429])
 
 function submitStatusDetail(status: number, host: string, apiKey: string): string {
-  if (status === 403) return `IndexNow rejected the key (403) — check the key file is deployed at https://${host}/${apiKey}.txt`
-  if (status === 404) return 'IndexNow endpoint not found (404) — check network/DNS to api.indexnow.org'
-  if (status === 429) return 'Rate limited by IndexNow (429) — retries exhausted'
-  if (status >= 500) return `IndexNow server error (${status}) — retries exhausted`
+  if (status === 403) return `IndexNow rejected the key (403). Check the key file is deployed at https://${host}/${apiKey}.txt`
+  if (status === 404) return 'IndexNow endpoint not found (404). Check network/DNS to api.indexnow.org'
+  if (status === 429) return 'Rate limited by IndexNow (429), retries exhausted'
+  if (status >= 500) return `IndexNow server error (${status}), retries exhausted`
   return `IndexNow responded ${status}`
 }
 
 /**
  * Submit one batch to api.indexnow.org with retry + exponential backoff.
  * Respects Retry-After headers when present. 403/404/429/5xx are all retried (each can be
- * transient — a WAF hiccup, propagation delay after deploying the key, a brief outage) before
+ * transient: a WAF hiccup, propagation delay after deploying the key, a brief outage) before
  * giving up with a status-specific, actionable error.
  * Returns HTTP status (200/202 = accepted).
  */
 async function submitBatch(site: Site, urlList: string[]): Promise<number> {
   if (DRY_RUN) {
-    console.log(c.cyan(`[dry-run] Would submit ${urlList.length} URL(s) for ${site.name} to IndexNow — skipped`))
+    console.log(c.cyan(`[dry-run] Would submit ${urlList.length} URL(s) for ${site.name} to IndexNow, skipped`))
     return 202
   }
 
@@ -587,7 +587,7 @@ async function submitBatch(site: Site, urlList: string[]): Promise<number> {
         signal: AbortSignal.timeout(30_000),
       })
 
-      // Success — accept 200 or 202
+      // Success: accept 200 or 202
       if (res.ok || res.status === 202) return res.status
 
       if (RETRYABLE_STATUSES.has(res.status) || res.status >= 500) {

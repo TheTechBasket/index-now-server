@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-// Colored console helpers — no emoji
+// Colored console helpers, no emoji
 export const c = {
   red: (s: string) => `\x1b[31m${s}\x1b[0m`,
   yellow: (s: string) => `\x1b[33m${s}\x1b[0m`,
@@ -14,17 +14,27 @@ const WEAK_PASSWORD_MIN_LEN = 12
 
 /**
  * Auth is a simple env-gate: a single admin defined by ADMIN_EMAIL/ADMIN_PASSWORD
- * in .env. Optional — set AUTH_ENABLED=false (or leave both admin vars empty) to
+ * in .env. Optional: set AUTH_ENABLED=false (or leave both admin vars empty) to
  * disable the login gate entirely.
  *
  * Data is deliberately not tied to any user, so changing ADMIN_EMAIL in .env never
- * touches your sites/URLs — you just pick a new login.
+ * touches your sites/URLs. You just pick a new login.
  */
 export const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim() ?? ''
 export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? ''
+export const API_TOKEN = process.env.API_TOKEN?.trim() ?? ''
 
 export const authEnabled =
   process.env.AUTH_ENABLED !== 'false' && !!ADMIN_EMAIL && !!ADMIN_PASSWORD
+
+/** Check Bearer token from Authorization header against API_TOKEN env var. */
+export function checkApiToken(authHeader?: string): boolean {
+  if (!API_TOKEN) return false
+  if (!authHeader?.startsWith('Bearer ')) return false
+  const token = authHeader.slice(7)
+  if (token.length !== API_TOKEN.length) return false
+  return timingSafeEqual(Buffer.from(token), Buffer.from(API_TOKEN))
+}
 
 const secret = process.env.AUTH_SECRET ?? process.env.BETTER_AUTH_SECRET
 
