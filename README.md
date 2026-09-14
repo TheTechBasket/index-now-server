@@ -118,7 +118,18 @@ IndexNow Server ships an [MCP](https://modelcontextprotocol.io/) server for AI a
 }
 ```
 
-Available tools: `list_sites`, `get_site`, `get_site_urls`, `submit_site`, `sync_sitemap`, `get_submissions`, `get_cron_status`, `get_version`.
+**Tools** (project-level, not per-site):
+
+| Tool | Description |
+|------|-------------|
+| `get_overview` | Full project state: all sites, cron, settings, version, API reference. Call first. |
+| `get_site_detail` | One site: config, URL counts, recent submissions, errors, key status |
+| `add_site` | Add a site (auto-discovers sitemap from robots.txt) |
+| `update_site` | Change submission level, cron interval, sitemap URL, name |
+| `verify_key` | Check key deployment + return setup instructions |
+| `submit_urls` | Submit pending URLs to search engines |
+| `sync_sitemap` | Refresh URLs from sitemap without submitting |
+| `get_site_urls` | Browse/search URLs with status filter and pagination |
 
 ## Stack
 

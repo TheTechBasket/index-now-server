@@ -1,7 +1,6 @@
 import { Check, Copy, Key, RefreshCw, Send, Terminal } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Layout } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -105,7 +104,7 @@ export function SettingsPage() {
 
   if (!settings) {
     return (
-      <Layout>
+      <>
         <div className="mb-6">
           <div className="skeleton mb-2 h-6 w-48 rounded-md" />
           <div className="skeleton h-4 w-72 rounded-md" style={{ animationDelay: '60ms' }} />
@@ -117,7 +116,7 @@ export function SettingsPage() {
             <div className="skeleton h-40 rounded-xl ring-1 ring-foreground/10" style={{ animationDelay: '120ms' }} />
           </div>
         </div>
-      </Layout>
+      </>
     )
   }
 
@@ -127,7 +126,7 @@ export function SettingsPage() {
   -d '{"url":"https://example.com/new-page"}'`
 
   return (
-    <Layout>
+    <>
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Global Settings</h1>
@@ -304,7 +303,7 @@ export function SettingsPage() {
           </Card>
         </div>
       </div>
-    </Layout>
+    </>
   )
 }
 

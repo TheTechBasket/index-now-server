@@ -18,7 +18,6 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { KeyFileHelper } from '@/components/key-file-helper'
-import { Layout } from '@/components/layout'
 import { SiteDialog } from '@/components/site-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -485,7 +484,7 @@ export function SiteUrlsPage({
   }
 
   return (
-    <Layout>
+    <>
       <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
         <a href="/" className="flex items-center gap-1 font-medium hover:text-foreground transition-colors">
           <ArrowLeft className="size-3.5" /> Sites
@@ -1068,6 +1067,6 @@ export function SiteUrlsPage({
           }}
         />
       )}
-    </Layout>
+    </>
   )
 }

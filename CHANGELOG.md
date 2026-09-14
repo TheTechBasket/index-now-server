@@ -5,13 +5,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semve
 ## [0.7.1] - 2026-09-14
 
 ### Changed
+- Layout lifted to App level: header, footer, version badge no longer blink on page navigation.
+- MCP server redesigned with project-level tools: `get_overview` returns all sites, cron, settings,
+  version, and full API reference in one call. New tools: `add_site`, `update_site`, `verify_key`
+  (with deployment instructions), `get_site_detail` (config + submissions + errors in one response).
+  Removed per-fragment tools (`list_sites`, `get_version`, `get_cron_status`, `get_submissions`).
 - Footer info cards collapse by default for returning users (localStorage toggle).
 - Dashboard cards show inline error detail for failed submissions (persistent, not just toast).
 - Card header density reduced: submission level badge moved to description line.
-- Empty dashboard replaced with 3-step onboarding guide (add site, deploy key, submit URLs).
+- Empty dashboard replaced with 3-step onboarding guide.
 - Dashboard filter state (search, level, status, sort, view) persisted in URL search params.
 - Site URLs filter state (search, status, page) persisted in URL search params.
-- Removed decorative ping animation from footer dot.
+- Cleaned generic copy from onboarding and page headings.
 
 ## [0.7.0] - 2026-09-14
 

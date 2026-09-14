@@ -28,7 +28,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { KeyFileHelper } from '@/components/key-file-helper'
-import { Layout } from '@/components/layout'
 import { LogDialog } from '@/components/log-dialog'
 import { SiteDialog } from '@/components/site-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -461,12 +460,12 @@ export function Dashboard() {
   const hasFilters = q || levelFilter !== 'all' || statusFilter !== 'all'
 
   return (
-    <Layout>
+    <>
       {/* Top Header & Page Title */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">IndexNow Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Monitor and submit real-time URL updates across search engines</p>
+          <h1 className="text-2xl font-bold tracking-tight">Sites</h1>
+          <p className="text-sm text-muted-foreground">{allSites?.length ?? 0} sites configured</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -782,15 +781,15 @@ export function Dashboard() {
           <CardContent className="py-10">
             <div className="mx-auto max-w-sm space-y-6 text-center">
               <div>
-                <h3 className="text-lg font-semibold">Get started with IndexNow</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Add your first site to start pushing URL updates to search engines instantly.</p>
+                <h3 className="text-lg font-semibold">No sites yet</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Add a site, deploy the key file, then submit URLs to search engines.</p>
               </div>
               <div className="space-y-3 text-left text-sm">
                 <div className="flex items-start gap-3">
                   <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">1</span>
                   <div>
                     <p className="font-medium">Add a site</p>
-                    <p className="text-xs text-muted-foreground">Enter your domain and we'll auto-discover your sitemap.</p>
+                    <p className="text-xs text-muted-foreground">Enter your domain. The sitemap is auto-discovered from robots.txt.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -804,7 +803,7 @@ export function Dashboard() {
                   <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">3</span>
                   <div>
                     <p className="font-medium">Submit URLs</p>
-                    <p className="text-xs text-muted-foreground">Verify the key, then submit. All participating search engines get notified.</p>
+                    <p className="text-xs text-muted-foreground">Verify the key, then submit. Bing, Yandex, Naver, Seznam all get notified.</p>
                   </div>
                 </div>
               </div>
@@ -812,7 +811,7 @@ export function Dashboard() {
                 onClick={() => { setEditing(null); setDialogOpen(true) }}
                 className="gap-1.5"
               >
-                <Plus aria-hidden className="size-4" /> Add Your First Site
+                <Plus aria-hidden className="size-4" /> Add Site
               </Button>
             </div>
           </CardContent>
@@ -1366,6 +1365,6 @@ export function Dashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Layout>
+    </>
   )
 }

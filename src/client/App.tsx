@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
+import { Layout } from './components/layout'
 import { Toaster } from './components/ui/sonner'
 import { useSession } from './lib/auth'
 import { Login } from './pages/login'
@@ -95,7 +96,9 @@ export function App() {
 
   return (
     <>
-      <Suspense>{page}</Suspense>
+      <Layout>
+        <Suspense>{page}</Suspense>
+      </Layout>
       <Toaster position="bottom-right" />
     </>
   )

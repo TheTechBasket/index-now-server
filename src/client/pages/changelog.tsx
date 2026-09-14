@@ -1,7 +1,6 @@
 import { Bug, Plus, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Layout } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, type ChangelogResponse } from '@/lib/api'
@@ -34,7 +33,7 @@ export function ChangelogPage() {
   }, [])
 
   return (
-    <Layout>
+    <>
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Changelog</h1>
         <p className="text-sm text-muted-foreground">Fixes, performance improvements, and new features, release by release.</p>
@@ -78,6 +77,6 @@ export function ChangelogPage() {
           </Card>
         ))}
       </div>
-    </Layout>
+    </>
   )
 }

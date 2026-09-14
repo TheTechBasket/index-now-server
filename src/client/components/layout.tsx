@@ -50,7 +50,7 @@ function FooterInfo() {
         className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <Layers className="size-3.5" aria-hidden />
-        <span>Learn about IndexNow</span>
+        <span>About IndexNow</span>
         <span className={`text-[10px] transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
       </button>
       {open && (
