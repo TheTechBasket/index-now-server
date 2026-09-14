@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { Toaster } from './components/ui/sonner'
 import { useSession } from './lib/auth'
-import { ChangelogPage } from './pages/changelog'
-import { Dashboard } from './pages/dashboard'
 import { Login } from './pages/login'
 import { NotFoundPage } from './pages/not-found'
-import { SettingsPage } from './pages/settings'
-import { SiteUrlsPage } from './pages/site-urls'
+
+const Dashboard = lazy(() => import('./pages/dashboard').then((m) => ({ default: m.Dashboard })))
+const SiteUrlsPage = lazy(() => import('./pages/site-urls').then((m) => ({ default: m.SiteUrlsPage })))
+const SettingsPage = lazy(() => import('./pages/settings').then((m) => ({ default: m.SettingsPage })))
+const ChangelogPage = lazy(() => import('./pages/changelog').then((m) => ({ default: m.ChangelogPage })))
 
 function usePathRoute() {
   const [route, setRoute] = useState(() => {
@@ -94,7 +95,7 @@ export function App() {
 
   return (
     <>
-      {page}
+      <Suspense>{page}</Suspense>
       <Toaster position="bottom-right" />
     </>
   )

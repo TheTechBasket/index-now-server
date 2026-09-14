@@ -97,6 +97,10 @@ function sleep(ms: number): Promise<void> {
 }
 
 export function startCron() {
+  if (process.env.DISABLE_CRON === 'true') {
+    console.warn(c.yellow('[cron] DISABLE_CRON=true, all scheduled jobs disabled'))
+    return
+  }
   for (const [interval, expr] of Object.entries(SCHEDULES) as [keyof typeof SCHEDULES, string][]) {
     cron.schedule(expr, () => {
       if (running) {

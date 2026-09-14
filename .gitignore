@@ -20,6 +20,10 @@ init.md
 .claude/
 .opencode/
 
+# Benchmark artifacts (generated, machine-specific)
+bench/*.db
+bench/results/
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db

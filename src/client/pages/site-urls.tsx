@@ -178,14 +178,11 @@ export function SiteUrlsPage({
   }
 
   const loadSite = useCallback(() => {
-    api<Site[]>('/sites')
-      .then((all) => {
-        const found = all.find((s) => s.id === siteId) ?? null
+    api<Site>(`/sites/${siteId}`)
+      .then((found) => {
         setSite(found)
-        if (found) {
-          setSitemapCount(found.sitemapCount)
-          if (found.keyVerified === true) setKeyStatus('found')
-        }
+        setSitemapCount(found.sitemapCount)
+        if (found.keyVerified === true) setKeyStatus('found')
       })
       .catch((err) => toast.error(err.message))
   }, [siteId])

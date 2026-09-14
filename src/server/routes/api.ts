@@ -43,6 +43,25 @@ const siteBody = {
   additionalProperties: false,
 } as const
 
+// ponytail: in-memory caches, invalidated on writes
+let sitesCache: { data: unknown; ts: number } | null = null
+const urlCountsCache = new Map<string, { data: ReturnType<typeof urlCounts>; ts: number }>()
+const CACHE_TTL = 15_000
+function invalidateSitesCache() {
+  sitesCache = null
+  urlCountsCache.clear()
+}
+
+function enrichSite(site: typeof sites.$inferSelect, lastBySite: Map<string, typeof submissions.$inferSelect>, countsBySite: ReturnType<typeof urlCountsForSites>, mismatchBySite: Map<string, number>) {
+  return {
+    ...site,
+    lastSubmission: lastBySite.get(site.id) ?? null,
+    urlCounts: countsBySite.get(site.id) ?? { new: 0, updated: 0, submitted: 0, removed: 0, total: 0, pending: 0 },
+    nextRunAt: site.submissionLevel === 'scheduled' ? nextRunFor(site.cronInterval) : null,
+    mismatchedCount: mismatchBySite.get(site.id) ?? 0,
+  }
+}
+
 export async function apiRoutes(app: FastifyInstance) {
   // Session guard for everything registered in this scope (skipped if auth disabled)
   app.addHook('preHandler', async (req, reply) => {
@@ -54,18 +73,25 @@ export async function apiRoutes(app: FastifyInstance) {
   // --- Sites ---
 
   app.get('/sites', async () => {
+    if (sitesCache && Date.now() - sitesCache.ts < CACHE_TTL) return sitesCache.data
     const all = db.select().from(sites).all()
     const ids = all.map((s) => s.id)
     const lastBySite = latestSubmissionsForSites(ids)
     const countsBySite = urlCountsForSites(ids)
     const mismatchBySite = mismatchCountsForSites(ids)
-    return all.map((site) => ({
-      ...site,
-      lastSubmission: lastBySite.get(site.id) ?? null,
-      urlCounts: countsBySite.get(site.id) ?? { new: 0, updated: 0, submitted: 0, removed: 0, total: 0, pending: 0 },
-      nextRunAt: site.submissionLevel === 'scheduled' ? nextRunFor(site.cronInterval) : null,
-      mismatchedCount: mismatchBySite.get(site.id) ?? 0,
-    }))
+    const data = all.map((site) => enrichSite(site, lastBySite, countsBySite, mismatchBySite))
+    sitesCache = { data, ts: Date.now() }
+    return data
+  })
+
+  app.get('/sites/:id', async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const site = db.select().from(sites).where(eq(sites.id, id)).get()
+    if (!site) return reply.code(404).send({ error: 'Site not found' })
+    const lastBySite = latestSubmissionsForSites([id])
+    const countsBySite = urlCountsForSites([id])
+    const mismatchBySite = mismatchCountsForSites([id])
+    return enrichSite(site, lastBySite, countsBySite, mismatchBySite)
   })
 
   app.get('/cron/status', async () => getCronProgress())
@@ -96,6 +122,7 @@ export async function apiRoutes(app: FastifyInstance) {
         })
         .returning()
         .get()
+      invalidateSitesCache()
       return reply.code(201).send(site)
     },
   )
@@ -131,6 +158,7 @@ export async function apiRoutes(app: FastifyInstance) {
       .returning()
       .get()
     if (!updated) return reply.code(404).send({ error: 'Site not found' })
+    invalidateSitesCache()
     return updated
   })
 
@@ -138,6 +166,7 @@ export async function apiRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string }
     const deleted = db.delete(sites).where(eq(sites.id, id)).returning().get()
     if (!deleted) return reply.code(404).send({ error: 'Site not found' })
+    invalidateSitesCache()
     return { ok: true }
   })
 
@@ -150,6 +179,7 @@ export async function apiRoutes(app: FastifyInstance) {
       .returning()
       .get()
     if (!updated) return reply.code(404).send({ error: 'Site not found' })
+    invalidateSitesCache()
     return updated
   })
 
@@ -171,7 +201,9 @@ export async function apiRoutes(app: FastifyInstance) {
       }
     }
     try {
-      return await runSubmission(site, 'manual', body?.urls)
+      const result = await runSubmission(site, 'manual', body?.urls)
+      invalidateSitesCache()
+      return result
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.includes('Rejected') || msg.includes('host_mismatch') || msg.includes('not_in_sitemap')) {
@@ -187,6 +219,7 @@ export async function apiRoutes(app: FastifyInstance) {
     const site = db.select().from(sites).where(eq(sites.id, id)).get()
     if (!site) return reply.code(404).send({ error: 'Site not found' })
     const changed = resetUrlStatuses(id)
+    invalidateSitesCache()
     return { ok: true, changed, counts: urlCounts(site) }
   })
 
@@ -209,6 +242,7 @@ export async function apiRoutes(app: FastifyInstance) {
       if (!site) return reply.code(404).send({ error: 'Site not found' })
       const { ids } = req.body as { ids: number[] }
       const deleted = deleteUrlsByIds(id, ids)
+      invalidateSitesCache()
       return { ok: true, deleted, counts: urlCounts(site) }
     },
   )
@@ -237,6 +271,7 @@ export async function apiRoutes(app: FastifyInstance) {
       if (all) deleted = deleteAllUrls(id)
       else if (status === 'removed') deleted = pruneRemovedUrls(site)
       else return reply.code(400).send({ error: 'Provide ?all=true or ?status=removed or use bulk-delete' })
+      invalidateSitesCache()
       return { ok: true, deleted, counts: urlCounts(site) }
     },
   )
@@ -247,7 +282,9 @@ export async function apiRoutes(app: FastifyInstance) {
     const site = db.select().from(sites).where(eq(sites.id, id)).get()
     if (!site) return reply.code(404).send({ error: 'Site not found' })
     try {
-      return await syncSitemap(site)
+      const result = await syncSitemap(site)
+      invalidateSitesCache()
+      return result
     } catch (err) {
       if (err instanceof SitemapFetchError) {
         const code = err.statusCode === 404 ? 404 : 502
@@ -380,7 +417,12 @@ export async function apiRoutes(app: FastifyInstance) {
       // scan on the default (unfiltered, first-page) view where the banner is actually shown.
       const warnings = !q && !status && offset === 0 ? getSitemapWarnings(site) : undefined
 
-      return { rows, total, counts: urlCounts(site), lastSyncAt: site.lastSyncAt, warnings }
+      let counts = urlCountsCache.get(id)
+      if (!counts || Date.now() - counts.ts > CACHE_TTL) {
+        counts = { data: urlCounts(site), ts: Date.now() }
+        urlCountsCache.set(id, counts)
+      }
+      return { rows, total, counts: counts.data, lastSyncAt: site.lastSyncAt, warnings }
     },
   )
 

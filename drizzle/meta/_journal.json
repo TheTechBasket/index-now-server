@@ -50,6 +50,13 @@
       "when": 1788327135557,
       "tag": "0006_thick_exiles",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1789372282317,
+      "tag": "0007_worthless_echo",
+      "breakpoints": true
     }
   ]
 }

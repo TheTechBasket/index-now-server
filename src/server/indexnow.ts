@@ -256,19 +256,23 @@ export function statusExpr(site: Site): SQL<UrlStatus> {
 }
 
 export function urlCounts(site: Site): Record<UrlStatus | 'total' | 'pending', number> {
-  const rows = db
-    .select({ status: statusExpr(site), n: sql<number>`count(*)` })
+  const lastSync = site.lastSyncAt ? Math.floor(site.lastSyncAt.getTime() / 1000) : 0
+  const row = db
+    .select({
+      total: sql<number>`count(*)`,
+      removed: sql<number>`sum(CASE WHEN ${siteUrls.lastSeenAt} IS NOT NULL AND ${siteUrls.lastSeenAt} < ${lastSync} THEN 1 ELSE 0 END)`,
+      newCount: sql<number>`sum(CASE WHEN ${siteUrls.submittedAt} IS NULL AND NOT (${siteUrls.lastSeenAt} IS NOT NULL AND ${siteUrls.lastSeenAt} < ${lastSync}) THEN 1 ELSE 0 END)`,
+      updated: sql<number>`sum(CASE WHEN ${siteUrls.submittedAt} IS NOT NULL AND ${siteUrls.lastmod} IS NOT NULL AND (${siteUrls.submittedLastmod} IS NULL OR ${siteUrls.submittedLastmod} != ${siteUrls.lastmod}) AND NOT (${siteUrls.lastSeenAt} IS NOT NULL AND ${siteUrls.lastSeenAt} < ${lastSync}) THEN 1 ELSE 0 END)`,
+    })
     .from(siteUrls)
     .where(eq(siteUrls.siteId, site.id))
-    .groupBy(sql`1`)
-    .all()
-  const counts = { new: 0, updated: 0, submitted: 0, removed: 0, total: 0, pending: 0 }
-  for (const r of rows) {
-    counts[r.status] = r.n
-    counts.total += r.n
-  }
-  counts.pending = counts.new + counts.updated
-  return counts
+    .get()
+  const total = row?.total ?? 0
+  const removed = row?.removed ?? 0
+  const newCount = row?.newCount ?? 0
+  const updated = row?.updated ?? 0
+  const submitted = total - removed - newCount - updated
+  return { new: newCount, updated, submitted, removed, total, pending: newCount + updated }
 }
 
 type UrlCounts = Record<UrlStatus | 'total' | 'pending', number>
@@ -355,51 +359,34 @@ export type SitemapWarnings = {
 }
 
 export function getSitemapWarnings(site: Site): SitemapWarnings {
-  const rows = db.select({ url: siteUrls.url }).from(siteUrls).where(eq(siteUrls.siteId, site.id)).all()
-  let mismatchedCount = 0
+  const countRow = db
+    .select({ n: sql<number>`count(*)` })
+    .from(siteUrls)
+    .where(and(eq(siteUrls.siteId, site.id), eq(siteUrls.hostMismatch, true)))
+    .get()
+  const mismatchedCount = countRow?.n ?? 0
+  if (mismatchedCount === 0) return { mismatchedCount: 0, localCount: 0, samples: [] }
+  const sampleRows = db
+    .select({ url: siteUrls.url })
+    .from(siteUrls)
+    .where(and(eq(siteUrls.siteId, site.id), eq(siteUrls.hostMismatch, true)))
+    .limit(5)
+    .all()
   let localCount = 0
-  const samples: string[] = []
-  for (const r of rows) {
-    try {
-      const host = new URL(r.url).hostname.toLowerCase()
-      if (isLocalHost(host)) {
-        localCount++
-        mismatchedCount++
-        if (samples.length < 5) samples.push(r.url)
-      } else if (host !== site.host.toLowerCase()) {
-        mismatchedCount++
-        if (samples.length < 5) samples.push(r.url)
-      }
-    } catch {
-      mismatchedCount++
-      if (samples.length < 5) samples.push(r.url)
-    }
+  for (const r of sampleRows) {
+    try { if (LOCAL_HOSTS.has(new URL(r.url).hostname.toLowerCase())) localCount++ } catch {}
   }
-  return { mismatchedCount, localCount, samples }
+  return { mismatchedCount, localCount, samples: sampleRows.map((r) => r.url) }
 }
 
-/** Cheap approximate mismatch count for all sites at once, for the dashboard badge.
- * SQL prefix match instead of getSitemapWarnings' exact per-row `new URL()` parse -
- * that's fine for one site's detail page but doing it for every site on every
- * dashboard load would mean parsing every URL in the database on every load. This
- * trades exactness (misses odd edge cases the real URL parser would catch) for one
- * indexed-ish table scan; the detail page still shows the precise count + samples. */
+// ponytail: uses materialized host_mismatch column instead of 4x NOT LIKE per row
 export function mismatchCountsForSites(siteIds: string[]): Map<string, number> {
   const result = new Map<string, number>()
   if (siteIds.length === 0) return result
   const rows = db
     .select({ siteId: siteUrls.siteId, n: sql<number>`count(*)` })
     .from(siteUrls)
-    .innerJoin(sites, eq(sites.id, siteUrls.siteId))
-    .where(
-      and(
-        inArray(siteUrls.siteId, siteIds),
-        sql`${siteUrls.url} NOT LIKE ('http://' || ${sites.host} || '/%')
-          AND ${siteUrls.url} NOT LIKE ('https://' || ${sites.host} || '/%')
-          AND ${siteUrls.url} != ('http://' || ${sites.host})
-          AND ${siteUrls.url} != ('https://' || ${sites.host})`,
-      ),
-    )
+    .where(and(inArray(siteUrls.siteId, siteIds), eq(siteUrls.hostMismatch, true)))
     .groupBy(siteUrls.siteId)
     .all()
   for (const r of rows) result.set(r.siteId, r.n)
@@ -541,14 +528,18 @@ export async function syncSitemap(
   const inScope = excluded.size > 0 ? entries.filter((e) => !e.path.some((p) => excluded.has(p))) : entries
   const now = new Date()
   const dedup = new Map(inScope.map((e) => [e.loc, e.lastmod]))
-  const rows = [...dedup].map(([url, lastmod]) => ({ siteId: site.id, url, lastmod, firstSeenAt: now, lastSeenAt: now }))
+  const hostLower = site.host.toLowerCase()
+  const rows = [...dedup].map(([url, lastmod]) => ({
+    siteId: site.id, url, lastmod, firstSeenAt: now, lastSeenAt: now,
+    hostMismatch: isUrlHostMismatch(url, hostLower),
+  }))
   db.transaction((tx) => {
     for (const batch of chunk(rows, BULK_CHUNK)) {
       tx.insert(siteUrls)
         .values(batch)
         .onConflictDoUpdate({
           target: [siteUrls.siteId, siteUrls.url],
-          set: { lastSeenAt: now, lastmod: sql`excluded.lastmod` },
+          set: { lastSeenAt: now, lastmod: sql`excluded.lastmod`, hostMismatch: sql`excluded.host_mismatch` },
         })
         .run()
     }

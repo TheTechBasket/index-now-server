@@ -2,6 +2,30 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## [0.6.0] - 2026-09-14
+
+### Added
+- `GET /api/sites/:id` endpoint: fetch one site without aggregating all sites.
+- Benchmark suite (`bench/`) with seed script, driver, and runner for repeatable performance testing against 1M+ URLs.
+- `DISABLE_CRON=true` env var to prevent scheduled jobs from running (dev/bench).
+- Response compression via `@fastify/compress` (gzip/brotli).
+- Code-split React routes via `React.lazy()`: main bundle 476KB to 284KB.
+
+### Changed
+- SQLite pragmas tuned: `busy_timeout=5000`, `synchronous=NORMAL`, `cache_size=64MB`, `temp_store=MEMORY`.
+- Dashboard (`GET /api/sites`) cached in-memory for 15s, invalidated on writes.
+- Per-site URL counts cached 15s on the URL list page.
+- Host mismatch detection uses materialized `host_mismatch` column instead of 4x NOT LIKE per-row scan.
+- `getSitemapWarnings` uses indexed query instead of loading all URLs into memory.
+- Site URL page fetches single site via `/api/sites/:id` instead of all sites.
+
+### Fixed
+- Missing database indexes: `submitted_urls(site_id)`, `submitted_urls(site_id, submitted_at)`, `submissions(site_id)`, `submissions(created_at)`.
+- Dashboard load with 1M URLs: ~2000ms to <1ms (cached), ~800ms cold.
+- Site URL page first load: ~660ms to ~200ms (354K-URL site).
+- Deep pagination (offset 50K): ~300ms to ~15ms.
+- Search queries: ~340ms to ~42ms.
+
 ## [0.5.0] - 2026-09-02
 
 ### Added

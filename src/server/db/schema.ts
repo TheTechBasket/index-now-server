@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 // --- App tables ---
 // No user_id anywhere — auth is a simple env gate, so data never belongs to a
@@ -51,8 +51,13 @@ export const siteUrls = sqliteTable(
     submittedAt: integer('submitted_at', { mode: 'timestamp' }),
     submittedLastmod: text('submitted_lastmod'), // lastmod value at submission time
     statusCode: integer('status_code'),
+    hostMismatch: integer('host_mismatch', { mode: 'boolean' }).notNull().default(false),
   },
-  (t) => [uniqueIndex('submitted_urls_site_url').on(t.siteId, t.url)],
+  (t) => [
+    uniqueIndex('submitted_urls_site_url').on(t.siteId, t.url),
+    index('idx_site_urls_site_id').on(t.siteId),
+    index('idx_site_urls_site_submitted').on(t.siteId, t.submittedAt),
+  ],
 )
 
 export const submissions = sqliteTable('submissions', {
@@ -67,7 +72,10 @@ export const submissions = sqliteTable('submissions', {
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
-})
+}, (t) => [
+  index('idx_submissions_site_id').on(t.siteId),
+  index('idx_submissions_created_at').on(t.createdAt),
+])
 
 // single-row settings table (id always 1)
 export const settings = sqliteTable('settings', {

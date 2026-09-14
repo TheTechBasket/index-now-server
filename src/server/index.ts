@@ -1,5 +1,6 @@
 import './env.ts'
 import { resolve } from 'node:path'
+import compress from '@fastify/compress'
 import FastifyVite from '@fastify/vite'
 import Fastify from 'fastify'
 import {
@@ -20,6 +21,8 @@ const port = Number(process.env.PORT ?? 3020)
 const server = Fastify({
   logger: { level: 'warn' },
 })
+
+await server.register(compress)
 
 await server.register(FastifyVite, {
   root: resolve(import.meta.dirname, '../..'),
