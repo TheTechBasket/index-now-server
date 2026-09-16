@@ -284,7 +284,7 @@
 
   function api(url, opts) {
     opts = opts || {};
-    opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    if (opts.body) opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
     return fetch('/api' + url, opts).then(function(res) {
       return res.json().then(function(data) {
         if (!res.ok) throw new Error(data.error || 'Request failed');

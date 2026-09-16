@@ -2,6 +2,21 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## [0.8.1] - 2026-09-16
+
+### Fixed
+- **Sitemap sync, key verification, and other no-body POST actions returned 400.** The frontend
+  `api()` helper always sent `Content-Type: application/json`, even on POSTs with no body. Fastify
+  tried to parse the empty string as JSON and rejected it. Fixed in dashboard, site-urls, and
+  settings pages.
+
+### Added
+- **API integration test suite** (58 tests). Covers every API endpoint: sites CRUD, sync, submit,
+  URL management, settings, webhook, auth session, version, changelog, cron status. Runs via
+  `vitest run` against an in-memory test DB.
+- Extracted `buildApp()` factory from `index.ts` into `app.ts` so tests can boot the server
+  without listening on a port.
+
 ## [0.8.0] - 2026-09-14
 
 ### Changed
