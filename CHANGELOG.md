@@ -2,6 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## [0.8.2] - 2026-09-16
+
+### Fixed
+- **Dockerfile: removed manual node-gyp rebuild step.** The old approach fetched Node headers from
+  `unofficial-builds.nodejs.org` which frequently times out in Docker builds, causing consistent
+  build failures. Now uses `pnpm install` without `--ignore-scripts`, letting better-sqlite3 build
+  via its own install script using official Node headers. Build time for deps layer dropped from
+  ~40s+ (when it worked) to ~16s. Image size unchanged at 372MB.
+
 ## [0.8.1] - 2026-09-16
 
 ### Fixed
