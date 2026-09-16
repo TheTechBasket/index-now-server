@@ -98,22 +98,7 @@
     <p class="mt-1 text-muted-foreground">Fix your sitemap or site host. These URLs will be flagged and blocked from manual submission.</p>
   </div>
 
-  <!-- Sitemap explorer (populated by JS if site has children) -->
-  <div id="sitemap-explorer" class="hidden rounded-lg border p-4">
-    <button id="toggle-sitemap-tree" class="flex w-full items-center justify-between text-sm font-medium cursor-pointer">
-      <span id="sitemap-explorer-title">Sitemaps</span>
-      <svg class="size-4 text-muted-foreground transition-transform" id="sitemap-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="m6 9 6 6 6-6"/></svg>
-    </button>
-    <div id="sitemap-tree" class="hidden mt-3 space-y-1"></div>
-  </div>
-
-  <!-- Stats bar (populated by JS) -->
-  <div id="url-stats" class="flex flex-wrap gap-4 text-sm"></div>
-
-  <!-- Status count filter buttons -->
-  <div id="status-pills" class="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"></div>
-
-  <!-- Toolbar: search + status filter + pagination -->
+  <!-- Toolbar: search + status filter + actions -->
   <div class="flex flex-wrap items-center gap-2">
     <div class="relative">
       <svg class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -121,26 +106,63 @@
         id="url-search"
         type="text"
         placeholder="Search URLs..."
+        aria-label="Search URLs"
         class="h-8 w-64 rounded-md border bg-background pl-9 pr-3 text-xs outline-none ring-ring focus:ring-2"
       />
     </div>
-    <select id="url-status-filter" class="h-8 rounded-md border bg-background px-2 text-xs outline-none ring-ring focus:ring-2 cursor-pointer">
+    <select id="url-status-filter" aria-label="Filter by status" class="h-8 rounded-md border bg-background px-2 text-xs outline-none ring-ring focus:ring-2 cursor-pointer">
       <option value="all">All statuses</option>
       <option value="new">New</option>
       <option value="updated">Updated</option>
       <option value="submitted">Submitted</option>
       <option value="removed">Removed</option>
     </select>
+    <span id="urls-loading" class="hidden size-4 animate-spin text-muted-foreground" role="status" aria-label="Loading URLs">
+      <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="4"/><path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+    </span>
     <div class="ml-auto flex items-center gap-2">
+      <label for="url-page-size" class="text-xs text-muted-foreground">Per page</label>
+      <select id="url-page-size" class="h-7 rounded-md border bg-background px-1.5 text-xs outline-none ring-ring focus:ring-2 cursor-pointer">
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
       <span id="url-page-info" class="text-xs text-muted-foreground"></span>
-      <button id="url-prev" class="inline-flex size-7 items-center justify-center rounded-md border text-xs disabled:opacity-50 cursor-pointer" disabled>&lt;</button>
-      <button id="url-next" class="inline-flex size-7 items-center justify-center rounded-md border text-xs disabled:opacity-50 cursor-pointer" disabled>&gt;</button>
+      <button id="url-prev" aria-label="Previous page" class="inline-flex size-7 items-center justify-center rounded-md border text-xs disabled:opacity-50 cursor-pointer" disabled>&lt;</button>
+      <button id="url-next" aria-label="Next page" class="inline-flex size-7 items-center justify-center rounded-md border text-xs disabled:opacity-50 cursor-pointer" disabled>&gt;</button>
     </div>
+  </div>
+
+  <!-- Site actions row -->
+  <div class="flex flex-wrap items-center gap-2">
+    <button id="btn-sitemaps" class="hidden items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent cursor-pointer">
+      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+      <span class="btn-label">Sitemaps</span>
+    </button>
+    <button id="btn-sync" class="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent cursor-pointer disabled:opacity-60">
+      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      <span class="btn-label">Sync Sitemap</span>
+    </button>
+    <button id="btn-submit" class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer disabled:opacity-60">
+      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+      <span class="btn-label">Submit Pending</span>
+      <span id="submit-count" class="hidden rounded-full bg-primary-foreground/25 px-1.5 py-px text-[10px] font-semibold"></span>
+    </button>
+    <button id="btn-reset" class="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent cursor-pointer disabled:opacity-60">
+      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      <span class="btn-label">Reset Statuses</span>
+    </button>
+    <button id="btn-prune" class="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-background px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 cursor-pointer disabled:opacity-60">
+      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+      <span class="btn-label">Prune Removed</span>
+    </button>
   </div>
 
   <!-- Bulk actions bar (shown when URLs selected) -->
   <div id="bulk-bar" class="hidden flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5 text-xs">
     <span id="bulk-count" class="font-medium"></span>
+    <button id="bulk-select-all" class="hidden items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-accent cursor-pointer">Select all matching</button>
     <button id="bulk-submit" class="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-accent cursor-pointer">
       <svg class="size-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
       Submit selected
@@ -153,17 +175,17 @@
   </div>
 
   <!-- URL table -->
-  <div class="overflow-x-auto rounded-lg border">
-    <table class="w-full text-sm" id="url-table">
-      <thead>
-        <tr class="border-b bg-muted/50">
-          <th class="w-8 px-2 py-2"><input type="checkbox" id="select-all" class="rounded cursor-pointer" /></th>
-          <th class="px-3 py-2 text-left font-medium">URL</th>
-          <th class="px-3 py-2 text-left font-medium">Status</th>
-          <th class="px-3 py-2 text-left font-medium">Lastmod</th>
-          <th class="px-3 py-2 text-left font-medium">Last seen</th>
-          <th class="px-3 py-2 text-left font-medium">Submitted</th>
-          <th class="px-3 py-2 text-right font-medium">Actions</th>
+  <div id="url-table-wrap" class="rounded-lg border" style="max-height:520px;overflow:auto">
+    <table class="w-full text-sm" id="url-table" aria-busy="false">
+      <thead class="sticky top-0 z-10 bg-muted">
+        <tr class="border-b">
+          <th scope="col" class="w-8 px-2 py-2"><input type="checkbox" id="select-all" aria-label="Select all URLs on this page" class="rounded cursor-pointer" /></th>
+          <th scope="col" class="px-3 py-2 text-left font-medium">URL</th>
+          <th scope="col" class="px-3 py-2 text-left font-medium">Status</th>
+          <th scope="col" class="px-3 py-2 text-left font-medium">Lastmod</th>
+          <th scope="col" class="px-3 py-2 text-left font-medium">Last seen</th>
+          <th scope="col" class="px-3 py-2 text-left font-medium">Submitted</th>
+          <th scope="col" class="px-3 py-2 text-right font-medium">Actions</th>
         </tr>
       </thead>
       <tbody id="url-tbody">
@@ -171,31 +193,6 @@
       </tbody>
     </table>
   </div>
-
-  <!-- Site actions row -->
-  <div class="flex flex-wrap items-center gap-2">
-    <button id="btn-sync" class="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent cursor-pointer">
-      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-      Sync Sitemap
-    </button>
-    <button id="btn-submit" class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer">
-      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
-      Submit Pending
-    </button>
-    <button id="btn-reset" class="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent cursor-pointer">
-      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-      Reset Statuses
-    </button>
-    <button id="btn-prune" class="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-background px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 cursor-pointer">
-      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-      Prune Removed
-    </button>
-    <button id="btn-delete-all" class="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-background px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 cursor-pointer">
-      <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-      Delete All URLs
-    </button>
-  </div>
-</div>
 
 <!-- Site Settings dialog -->
 <dialog id="site-settings-dialog" class="w-full max-w-md rounded-lg border bg-background p-0 shadow-lg backdrop:bg-black/50">
@@ -246,6 +243,16 @@
           <button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">Save changes</button>
         </div>
       </div>
+      <div class="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+        <p class="text-sm font-medium text-destructive">Danger zone</p>
+        <p class="mt-1 text-xs text-muted-foreground">Delete every URL for this site. Type the site host (<code id="delete-all-host" class="font-mono"></code>) to enable.</p>
+        <div class="mt-2 flex items-center gap-2">
+          <input id="delete-all-confirm" type="text" autocomplete="off" placeholder="site host" aria-label="Type site host to confirm deletion" class="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs font-mono outline-none ring-ring focus:ring-2" />
+          <button type="button" id="btn-delete-all" disabled class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-destructive/30 bg-background px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 cursor-pointer disabled:opacity-50">
+            <span class="btn-label">Delete All URLs</span>
+          </button>
+        </div>
+      </div>
     </div>
   </form>
 </dialog>
@@ -267,20 +274,43 @@
   </form>
 </dialog>
 
+<!-- Sitemaps dialog -->
+<dialog id="sitemap-dialog" aria-labelledby="sitemap-dialog-title" class="w-full max-w-lg rounded-lg border bg-background p-0 shadow-lg backdrop:bg-black/50">
+  <div class="p-6">
+    <h2 id="sitemap-dialog-title" class="text-lg font-semibold mb-1">Sitemaps</h2>
+    <p class="text-sm text-muted-foreground mb-4">Uncheck a sitemap to exclude it from future syncs.</p>
+    <div id="sitemap-list" class="space-y-1 max-h-72 overflow-y-auto rounded-md border p-2"></div>
+    <div class="flex justify-end gap-2 mt-4">
+      <button type="button" id="btn-sitemap-close" class="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent cursor-pointer">Close</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- Toast container -->
-<div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+<div id="toast-container" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
 
 <script>
 (function() {
   'use strict';
   var siteId = document.getElementById('site-urls-page').dataset.siteId;
-  var PAGE_SIZE = 100;
+  var PAGE_SIZES = [20, 30, 50, 100];
+  var PAGE_SIZE = 20;
   var currentPage = 0;
   var currentQ = '';
   var currentStatus = 'all';
   var siteData = null;
   var selectedIds = new Set();
   var currentRows = [];
+  var filterTotal = 0;
+  var selectAllMatching = false;
+  var matchFilter = { q: '', status: 'all' };
+
+  function clearSelection() {
+    selectedIds.clear();
+    selectAllMatching = false;
+    document.querySelectorAll('.row-select').forEach(function(cb) { cb.checked = false; });
+    updateBulkBar();
+  }
 
   function api(url, opts) {
     opts = opts || {};
@@ -303,9 +333,73 @@
     setTimeout(function() { el.remove(); }, 3500);
   }
 
+  var SPINNER_SVG = '<svg class="size-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="4"/><path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
+
+  // Unified busy state: disable + spinner + label swap + aria-busy, restore on done.
+  // Works on buttons whose text lives in a .btn-label span, or plain-text buttons.
+  function setBusy(btn, busy, busyText) {
+    if (!btn) return;
+    if (busy) {
+      if (btn.dataset.busy === '1') return;
+      btn.dataset.busy = '1';
+      btn.dataset.origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      var label = btn.querySelector('.btn-label');
+      if (label) {
+        if (!btn.querySelector('.busy-spinner')) {
+          var sp = document.createElement('span');
+          sp.className = 'busy-spinner inline-flex';
+          sp.innerHTML = SPINNER_SVG;
+          btn.insertBefore(sp, btn.firstChild);
+        }
+        // Hide the button's original icon(s) so only the spinner shows
+        Array.prototype.forEach.call(btn.children, function(child) {
+          if (!child.classList.contains('busy-spinner') && !child.classList.contains('btn-label') && !child.classList.contains('busy-hidden')) {
+            child.classList.add('hidden');
+            child.classList.add('busy-hidden');
+          }
+        });
+        label.textContent = busyText || 'Working...';
+      } else {
+        btn.innerHTML = SPINNER_SVG + ' ' + esc(busyText || 'Working...');
+      }
+    } else {
+      if (btn.dataset.busy !== '1') return;
+      delete btn.dataset.busy;
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      if (btn.dataset.origHtml) btn.innerHTML = btn.dataset.origHtml;
+      delete btn.dataset.origHtml;
+    }
+  }
+
   function fmt(d) {
     if (!d) return '';
     return new Date(d).toLocaleString();
+  }
+
+  function fmtRel(d) {
+    if (!d) return '';
+    var t = new Date(d).getTime();
+    if (isNaN(t)) return '';
+    var s = Math.max(0, Math.round((Date.now() - t) / 1000));
+    if (s < 60) return 'just now';
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + 'm ago';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ago';
+    var d2 = Math.floor(h / 24);
+    if (d2 < 30) return d2 + 'd ago';
+    var mo = Math.floor(d2 / 30);
+    if (mo < 12) return mo + 'mo ago';
+    return Math.floor(mo / 12) + 'y ago';
+  }
+
+  // Table date cell: relative text, full timestamp on hover
+  function fmtCell(d) {
+    if (!d) return '';
+    return '<span title="' + esc(fmt(d)) + '">' + fmtRel(d) + '</span>';
   }
 
   function esc(s) {
@@ -364,36 +458,41 @@
     if (currentQ) params += '&q=' + encodeURIComponent(currentQ);
     if (currentStatus !== 'all') params += '&status=' + currentStatus;
 
-    api('/sites/' + siteId + '/urls?' + params).then(function(data) {
-      // Update stats
-      var c = data.counts;
-      var statsEl = document.getElementById('url-stats');
-      statsEl.innerHTML =
-        '<span class="font-medium">' + c.total + ' URLs</span>' +
-        '<span class="text-blue-600 dark:text-blue-400">' + c.new + ' new</span>' +
-        '<span class="text-amber-600 dark:text-amber-400">' + c.updated + ' updated</span>' +
-        '<span class="text-emerald-600 dark:text-emerald-400">' + c.submitted + ' submitted</span>' +
-        '<span class="text-red-600 dark:text-red-400">' + c.removed + ' removed</span>' +
-        (c.pending > 0 ? '<span class="font-medium text-amber-600 dark:text-amber-400">' + c.pending + ' pending</span>' : '');
+    document.getElementById('urls-loading').classList.remove('hidden');
+    document.getElementById('url-table').setAttribute('aria-busy', 'true');
 
-      // Update header info line
-      var host = siteData ? siteData.host : '';
-      var info = host + ' · ' + c.total + ' URLs total · ' + c.pending + ' pending submission';
+    api('/sites/' + siteId + '/urls?' + params).then(function(data) {
+      document.getElementById('urls-loading').classList.add('hidden');
+      document.getElementById('url-table').setAttribute('aria-busy', 'false');
+      // Counts live in the status dropdown (single source of truth)
+      var c = data.counts;
+      var sf = document.getElementById('url-status-filter');
+      function setOpt(v, t) { var o = sf.querySelector('option[value="' + v + '"]'); if (o) o.textContent = t; }
+      setOpt('all', 'All (' + c.total + ')');
+      setOpt('new', 'New (' + c.new + ')');
+      setOpt('updated', 'Updated (' + c.updated + ')');
+      setOpt('submitted', 'Submitted (' + c.submitted + ')');
+      setOpt('removed', 'Removed (' + c.removed + ')');
+
+      // Pending count rides on the primary action, not a passive stats row
+      var sc = document.getElementById('submit-count');
+      if (sc) {
+        if (c.pending > 0) { sc.textContent = c.pending; sc.classList.remove('hidden'); }
+        else sc.classList.add('hidden');
+      }
+
+      // Header stays a quiet one-liner: host + last sync
+      var info = siteData ? siteData.host : '';
       if (data.lastSyncAt) info += ' · Last synced ' + fmt(data.lastSyncAt);
       document.getElementById('site-host').textContent = info;
 
-      // Status count pills
-      var pillsEl = document.getElementById('status-pills');
-      function pill(label, count, value) {
-        var active = currentStatus === value;
-        return '<button class="status-pill rounded border px-2 py-0.5 font-medium transition-colors cursor-pointer ' +
-          (active ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/40 hover:bg-muted') +
-          '" data-status="' + value + '">' + label + ' (' + count + ')</button>';
-      }
-      pillsEl.innerHTML = pill('All', c.total, 'all') + pill('New', c.new, 'new') + pill('Updated', c.updated, 'updated') + pill('Submitted', c.submitted, 'submitted');
-
       // Render rows
       currentRows = data.rows;
+      filterTotal = data.total;
+      // A new result set drops the cross-page selection unless it was just promoted for this filter
+      if (selectAllMatching && (matchFilter.q !== currentQ || matchFilter.status !== currentStatus)) {
+        selectAllMatching = false;
+      }
       var tbody = document.getElementById('url-tbody');
       if (data.rows.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-muted-foreground">No URLs found.</td></tr>';
@@ -407,21 +506,21 @@
             '<td class="px-2 py-2"><input type="checkbox" class="row-select rounded cursor-pointer" data-id="' + row.id + '"' + checked + ' /></td>' +
             '<td class="px-3 py-2 text-xs max-w-md truncate" title="' + esc(row.url) + '"><a href="' + esc(row.url) + '" target="_blank" rel="noreferrer" class="hover:underline">' + esc(row.url) + '</a></td>' +
             '<td class="px-3 py-2"><span class="inline-flex items-center rounded-md border px-1.5 h-5 text-[10px] font-medium ' + sc + '">' + row.status + '</span></td>' +
-            '<td class="px-3 py-2 text-xs text-muted-foreground">' + fmt(row.lastmod) + '</td>' +
-            '<td class="px-3 py-2 text-xs text-muted-foreground">' + fmt(row.lastSeenAt) + '</td>' +
-            '<td class="px-3 py-2 text-xs text-muted-foreground">' + fmt(row.submittedAt) + '</td>' +
+            '<td class="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">' + fmtCell(row.lastmod) + '</td>' +
+            '<td class="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">' + fmtCell(row.lastSeenAt) + '</td>' +
+            '<td class="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">' + fmtCell(row.submittedAt) + '</td>' +
             '<td class="px-3 py-2 text-right">' +
               '<div class="flex items-center justify-end gap-0.5">' +
-                '<button class="row-action-submit size-7 inline-flex items-center justify-center rounded-md hover:bg-primary/10 text-primary cursor-pointer" data-url="' + esc(row.url) + '" title="Submit to IndexNow">' +
+                '<button class="row-action-submit size-7 inline-flex items-center justify-center rounded-md hover:bg-primary/10 text-primary cursor-pointer disabled:opacity-50" data-url="' + esc(row.url) + '" title="Submit to IndexNow" aria-label="Submit this URL to IndexNow">' +
                   '<svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>' +
                 '</button>' +
-                '<button class="row-action-copy size-7 inline-flex items-center justify-center rounded-md hover:bg-accent cursor-pointer" data-url="' + esc(row.url) + '" title="Copy URL">' +
+                '<button class="row-action-copy size-7 inline-flex items-center justify-center rounded-md hover:bg-accent cursor-pointer" data-url="' + esc(row.url) + '" title="Copy URL" aria-label="Copy URL">' +
                   '<svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>' +
                 '</button>' +
-                '<a href="' + esc(row.url) + '" target="_blank" rel="noreferrer" class="size-7 inline-flex items-center justify-center rounded-md hover:bg-accent" title="Open">' +
+                '<a href="' + esc(row.url) + '" target="_blank" rel="noreferrer" class="size-7 inline-flex items-center justify-center rounded-md hover:bg-accent" title="Open" aria-label="Open URL in new tab">' +
                   '<svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>' +
                 '</a>' +
-                '<button class="row-action-delete size-7 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 text-destructive cursor-pointer" data-id="' + row.id + '" title="Delete URL">' +
+                '<button class="row-action-delete size-7 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 text-destructive cursor-pointer disabled:opacity-50" data-id="' + row.id + '" title="Delete URL" aria-label="Delete this URL">' +
                   '<svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>' +
                 '</button>' +
               '</div>' +
@@ -431,20 +530,22 @@
       }
       updateBulkBar();
 
-      // Host mismatch warning
+      // Host mismatch warning (re-hidden on clean reloads)
+      var mw = document.getElementById('mismatch-warning');
       if (data.warnings && data.warnings.mismatchedCount > 0) {
-        var mw = document.getElementById('mismatch-warning');
         mw.classList.remove('hidden');
-        var host = siteData ? siteData.host : '';
+        var mhost = siteData ? siteData.host : '';
         document.getElementById('mismatch-text').textContent =
           data.warnings.mismatchedCount + ' URL' + (data.warnings.mismatchedCount !== 1 ? 's' : '') +
-          ' in sitemap do not match site host' + (host ? ' (' + host + ')' : '');
+          ' in sitemap do not match site host' + (mhost ? ' (' + mhost + ')' : '');
+      } else {
+        mw.classList.add('hidden');
       }
 
       // Pagination
       var totalPages = Math.ceil(data.total / PAGE_SIZE);
       document.getElementById('url-page-info').textContent =
-        'Page ' + (currentPage + 1) + ' of ' + Math.max(1, totalPages) + ' (' + data.total + ' total)';
+        'Page ' + (currentPage + 1) + ' of ' + Math.max(1, totalPages) + ' · ' + data.total + ' URLs';
       document.getElementById('url-prev').disabled = currentPage === 0;
       document.getElementById('url-next').disabled = currentPage >= totalPages - 1;
 
@@ -452,13 +553,20 @@
       var p = new URLSearchParams();
       if (currentQ) p.set('q', currentQ);
       if (currentStatus !== 'all') p.set('status', currentStatus);
+      if (PAGE_SIZE !== 20) p.set('limit', String(PAGE_SIZE));
       if (currentPage > 0) p.set('page', String(currentPage));
       var search = p.toString();
       var url = search ? window.location.pathname + '?' + search : window.location.pathname;
       window.history.replaceState({}, '', url);
+
+      // Keep action buttons visible: reset table scroll to top on page/limit change
+      var wrap = document.getElementById('url-table-wrap');
+      if (wrap) wrap.scrollTop = 0;
     }).catch(function(err) {
+      document.getElementById('urls-loading').classList.add('hidden');
+      document.getElementById('url-table').setAttribute('aria-busy', 'false');
       document.getElementById('url-tbody').innerHTML =
-        '<tr><td colspan="5" class="px-3 py-8 text-center text-destructive">' + esc(err.message) + '</td></tr>';
+        '<tr><td colspan="7" class="px-3 py-8 text-center text-destructive">' + esc(err.message) + '</td></tr>';
     });
   }
 
@@ -467,8 +575,12 @@
   currentQ = urlParams.get('q') || '';
   currentStatus = urlParams.get('status') || 'all';
   currentPage = parseInt(urlParams.get('page') || '0') || 0;
+  var initialLimit = parseInt(urlParams.get('limit') || localStorage.getItem('indexnow.site-urls.pageSize') || '20') || 20;
+  if (PAGE_SIZES.indexOf(initialLimit) === -1) initialLimit = 20;
+  PAGE_SIZE = initialLimit;
   document.getElementById('url-search').value = currentQ;
   document.getElementById('url-status-filter').value = currentStatus;
+  document.getElementById('url-page-size').value = String(PAGE_SIZE);
 
   loadUrls();
 
@@ -490,16 +602,6 @@
     loadUrls();
   });
 
-  // Status pill clicks
-  document.getElementById('status-pills').addEventListener('click', function(e) {
-    var btn = e.target.closest('.status-pill');
-    if (!btn) return;
-    currentStatus = btn.dataset.status;
-    currentPage = 0;
-    document.getElementById('url-status-filter').value = currentStatus;
-    loadUrls();
-  });
-
   // Pagination
   document.getElementById('url-prev').addEventListener('click', function() {
     if (currentPage > 0) { currentPage--; loadUrls(); }
@@ -509,8 +611,53 @@
     loadUrls();
   });
 
+  // Per-page size
+  document.getElementById('url-page-size').addEventListener('change', function() {
+    PAGE_SIZE = parseInt(this.value) || 20;
+    localStorage.setItem('indexnow.site-urls.pageSize', String(PAGE_SIZE));
+    currentPage = 0;
+    loadUrls();
+  });
+
+  // Keyboard shortcuts: / focus search, Esc clear, arrows paginate, Ctrl/Cmd+A select page
+  document.addEventListener('keydown', function(e) {
+    var tag = (e.target && e.target.tagName) || '';
+    var typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    if (e.key === 'Escape') {
+      var search = document.getElementById('url-search');
+      if (document.activeElement === search && search.value) {
+        search.value = '';
+        currentQ = '';
+        currentPage = 0;
+        loadUrls();
+      } else if (document.activeElement) {
+        document.activeElement.blur();
+      }
+      return;
+    }
+    if (typing || e.ctrlKey || e.metaKey) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !typing) {
+        e.preventDefault();
+        var sa = document.getElementById('select-all');
+        sa.checked = true;
+        sa.dispatchEvent(new Event('change'));
+      }
+      return;
+    }
+    if (e.key === '/') {
+      e.preventDefault();
+      document.getElementById('url-search').focus();
+    } else if (e.key === 'ArrowLeft') {
+      if (currentPage > 0) { currentPage--; loadUrls(); }
+    } else if (e.key === 'ArrowRight') {
+      var nextBtn = document.getElementById('url-next');
+      if (!nextBtn.disabled) { currentPage++; loadUrls(); }
+    }
+  });
+
   // Actions
-  function fixSitemap(url) {
+  function fixSitemap(url, btn) {
+    if (btn) setBusy(btn, true, 'Updating...');
     api('/sites/' + siteId + '/sitemap-fix', { method: 'POST', body: JSON.stringify({ sitemapUrl: url }) })
       .then(function() {
         toast('Sitemap URL updated');
@@ -518,7 +665,8 @@
         document.getElementById('redirect-warning').classList.add('hidden');
         loadUrls();
       })
-      .catch(function(err) { toast(err.message, 'error'); });
+      .catch(function(err) { toast(err.message, 'error'); })
+      .finally(function() { if (btn) setBusy(btn, false); });
   }
 
   function showSyncError(err) {
@@ -549,7 +697,7 @@
 
   document.getElementById('sync-error-fix').addEventListener('click', function() {
     var url = document.getElementById('sync-error-url').textContent;
-    fixSitemap(url);
+    fixSitemap(url, this);
   });
   document.getElementById('sync-error-dismiss').addEventListener('click', function() {
     document.getElementById('sync-error').classList.add('hidden');
@@ -559,14 +707,15 @@
   });
   document.getElementById('redirect-fix').addEventListener('click', function() {
     var url = document.getElementById('redirect-to').textContent;
-    fixSitemap(url);
+    fixSitemap(url, this);
   });
   document.getElementById('redirect-dismiss').addEventListener('click', function() {
     document.getElementById('redirect-warning').classList.add('hidden');
   });
 
   document.getElementById('btn-sync').addEventListener('click', function() {
-    this.disabled = true;
+    var btn = this;
+    setBusy(btn, true, 'Syncing...');
     document.getElementById('sync-error').classList.add('hidden');
     document.getElementById('redirect-warning').classList.add('hidden');
     api('/sites/' + siteId + '/sync', { method: 'POST' })
@@ -586,11 +735,12 @@
           toast(err.message, 'error');
         }
       })
-      .finally(function() { document.getElementById('btn-sync').disabled = false; });
+      .finally(function() { setBusy(btn, false); });
   });
 
   document.getElementById('btn-submit').addEventListener('click', function() {
-    this.disabled = true;
+    var btn = this;
+    setBusy(btn, true, 'Submitting...');
     api('/sites/' + siteId + '/submit', { method: 'POST' })
       .then(function(r) {
         if (r.status === 'success') toast(r.urlCount + ' URLs submitted');
@@ -599,26 +749,32 @@
         loadUrls();
       })
       .catch(function(err) { toast(err.message, 'error'); })
-      .finally(function() { document.getElementById('btn-submit').disabled = false; });
+      .finally(function() { setBusy(btn, false); });
   });
 
   document.getElementById('btn-reset').addEventListener('click', function() {
     if (!confirm('Reset all URL submission statuses? This marks all URLs as pending.')) return;
+    var btn = this;
+    setBusy(btn, true, 'Resetting...');
     api('/sites/' + siteId + '/urls/reset', { method: 'POST' })
       .then(function(r) { toast(r.changed + ' URLs reset'); loadUrls(); })
-      .catch(function(err) { toast(err.message, 'error'); });
+      .catch(function(err) { toast(err.message, 'error'); })
+      .finally(function() { setBusy(btn, false); });
   });
 
   document.getElementById('btn-prune').addEventListener('click', function() {
     if (!confirm('Delete all removed URLs from the database?')) return;
+    var btn = this;
+    setBusy(btn, true, 'Pruning...');
     api('/sites/' + siteId + '/urls?status=removed', { method: 'DELETE' })
       .then(function(r) { toast(r.deleted + ' URLs pruned'); loadUrls(); })
-      .catch(function(err) { toast(err.message, 'error'); });
+      .catch(function(err) { toast(err.message, 'error'); })
+      .finally(function() { setBusy(btn, false); });
   });
 
   document.getElementById('verify-key-btn').addEventListener('click', function() {
-    this.disabled = true;
-    this.textContent = 'Checking...';
+    var btn = this;
+    setBusy(btn, true, 'Checking...');
     api('/sites/' + siteId + '/verify-key', { method: 'POST' })
       .then(function(r) {
         if (r.found) {
@@ -630,11 +786,7 @@
         }
       })
       .catch(function(err) { toast(err.message, 'error'); })
-      .finally(function() {
-        var btn = document.getElementById('verify-key-btn');
-        btn.disabled = false;
-        btn.textContent = 'Verify Key';
-      });
+      .finally(function() { setBusy(btn, false); });
   });
   // Copy key content / filename
   document.getElementById('copy-key-content').addEventListener('click', function() {
@@ -662,38 +814,48 @@
     }
   });
 
-  // Sitemap explorer
+  // Sitemap dialog: per-sitemap include toggles, counts, clickable links
   function renderSitemapTree(site) {
-    var explorer = document.getElementById('sitemap-explorer');
-    explorer.classList.remove('hidden');
+    var children = site.sitemapChildren || [];
+    var openBtn = document.getElementById('btn-sitemaps');
+    if (!children.length) {
+      openBtn.classList.add('hidden');
+      openBtn.classList.remove('inline-flex');
+      return;
+    }
+    openBtn.classList.remove('hidden');
+    openBtn.classList.add('inline-flex');
     var excluded = (site.excludedSitemaps || []);
-    var children = site.sitemapChildren;
-    document.getElementById('sitemap-explorer-title').textContent = 'Sitemaps (' + children.length + ')';
-    var tree = document.getElementById('sitemap-tree');
-    tree.innerHTML = children.map(function(child) {
+    var included = children.filter(function(child) { return excluded.indexOf(child.url || child) === -1; }).length;
+    openBtn.querySelector('.btn-label').textContent = 'Sitemaps (' + included + '/' + children.length + ')';
+    var list = document.getElementById('sitemap-list');
+    list.innerHTML = children.map(function(child) {
       var loc = child.url || child;
       var isExcluded = excluded.indexOf(loc) !== -1;
-      var count = child.count != null ? ' (' + child.count + ' URLs)' : '';
-      return '<label class="flex items-center gap-2 text-xs py-0.5 cursor-pointer">' +
-        '<input type="checkbox" class="sitemap-toggle rounded" data-loc="' + esc(loc) + '"' + (isExcluded ? '' : ' checked') + ' />' +
-        '<span class="truncate text-muted-foreground" title="' + esc(loc) + '">' + esc(loc) + '</span>' +
-        '<span class="text-muted-foreground/60 shrink-0">' + count + '</span>' +
-        '</label>';
+      var count = child.count != null ? child.count + ' URLs' : '';
+      return '<div class="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/50">' +
+        '<input type="checkbox" class="sitemap-toggle rounded shrink-0" data-loc="' + esc(loc) + '" aria-label="Include in sync: ' + esc(loc) + '"' + (isExcluded ? '' : ' checked') + ' />' +
+        '<a href="' + esc(loc) + '" target="_blank" rel="noreferrer" class="min-w-0 flex-1 truncate font-mono text-[11px] hover:underline" title="' + esc(loc) + '">' + esc(loc) + '</a>' +
+        '<span class="text-muted-foreground shrink-0">' + count + '</span>' +
+        '</div>';
     }).join('');
   }
 
-  document.getElementById('toggle-sitemap-tree').addEventListener('click', function() {
-    var tree = document.getElementById('sitemap-tree');
-    var chevron = document.getElementById('sitemap-chevron');
-    tree.classList.toggle('hidden');
-    chevron.style.transform = tree.classList.contains('hidden') ? '' : 'rotate(180deg)';
+  var sitemapDialog = document.getElementById('sitemap-dialog');
+  document.getElementById('btn-sitemaps').addEventListener('click', function() {
+    sitemapDialog.showModal();
+    document.getElementById('btn-sitemap-close').focus();
   });
+  document.getElementById('btn-sitemap-close').addEventListener('click', function() { sitemapDialog.close(); });
+  sitemapDialog.addEventListener('click', function(e) { if (e.target === sitemapDialog) sitemapDialog.close(); });
 
   // Handle sitemap include/exclude toggle
-  document.getElementById('sitemap-tree').addEventListener('change', function(e) {
+  document.getElementById('sitemap-list').addEventListener('change', function(e) {
     if (!e.target.classList.contains('sitemap-toggle')) return;
-    var loc = e.target.dataset.loc;
-    var include = e.target.checked;
+    var toggle = e.target;
+    var loc = toggle.dataset.loc;
+    var include = toggle.checked;
+    toggle.disabled = true;
     var excluded = (siteData.excludedSitemaps || []).slice();
     if (include) {
       excluded = excluded.filter(function(u) { return u !== loc; });
@@ -705,58 +867,137 @@
       body: JSON.stringify({ excludedSitemaps: excluded })
     }).then(function(updated) {
       siteData.excludedSitemaps = updated.excludedSitemaps || excluded;
+      renderSitemapTree(siteData);
       toast(include ? 'Sitemap included' : 'Sitemap excluded');
     }).catch(function(err) {
-      e.target.checked = !include;
+      toggle.checked = !include;
       toast(err.message, 'error');
-    });
+    }).finally(function() { toggle.disabled = false; });
   });
 
   // Selection and bulk actions
   function updateBulkBar() {
     var bar = document.getElementById('bulk-bar');
-    if (selectedIds.size > 0) {
+    var selBtn = document.getElementById('bulk-select-all');
+    if (selectedIds.size > 0 || selectAllMatching) {
       bar.classList.remove('hidden');
-      document.getElementById('bulk-count').textContent = selectedIds.size + ' selected';
+      if (selectAllMatching) {
+        document.getElementById('bulk-count').textContent = 'All ' + filterTotal + ' matching URLs selected';
+        selBtn.classList.add('hidden');
+      } else {
+        document.getElementById('bulk-count').textContent = selectedIds.size + ' selected';
+        var pageFull = currentRows.length > 0 && currentRows.every(function(r) { return selectedIds.has(r.id); });
+        if (pageFull && filterTotal > currentRows.length) {
+          selBtn.textContent = 'Select all ' + filterTotal + ' matching';
+          selBtn.classList.remove('hidden');
+        } else {
+          selBtn.classList.add('hidden');
+        }
+      }
     } else {
       bar.classList.add('hidden');
     }
     document.getElementById('select-all').checked = currentRows.length > 0 && currentRows.every(function(r) { return selectedIds.has(r.id); });
   }
 
+  document.getElementById('bulk-select-all').addEventListener('click', function() {
+    selectAllMatching = true;
+    matchFilter = { q: currentQ, status: currentStatus };
+    updateBulkBar();
+  });
+
   document.getElementById('url-tbody').addEventListener('change', function(e) {
     if (!e.target.classList.contains('row-select')) return;
     var id = parseInt(e.target.dataset.id);
     if (e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+    selectAllMatching = false;
     updateBulkBar();
   });
 
   document.getElementById('select-all').addEventListener('change', function() {
     var check = this.checked;
+    selectAllMatching = false;
     currentRows.forEach(function(r) { if (check) selectedIds.add(r.id); else selectedIds.delete(r.id); });
     document.querySelectorAll('.row-select').forEach(function(cb) { cb.checked = check; });
     updateBulkBar();
   });
 
   document.getElementById('bulk-clear').addEventListener('click', function() {
-    selectedIds.clear();
-    document.querySelectorAll('.row-select').forEach(function(cb) { cb.checked = false; });
-    updateBulkBar();
+    clearSelection();
   });
 
+  // Collect every matching row across pages (500/request) for cross-page bulk actions
+  function collectMatching(field) {
+    var out = [];
+    var params = 'limit=500&offset=0';
+    if (matchFilter.q) params += '&q=' + encodeURIComponent(matchFilter.q);
+    if (matchFilter.status !== 'all') params += '&status=' + matchFilter.status;
+    function page(offset) {
+      var p = params.replace('offset=0', 'offset=' + offset);
+      return api('/sites/' + siteId + '/urls?' + p).then(function(data) {
+        data.rows.forEach(function(r) { out.push(r[field]); });
+        if (out.length < data.total) return page(offset + 500);
+        return out;
+      });
+    }
+    return page(0);
+  }
+
   document.getElementById('bulk-submit').addEventListener('click', function() {
+    var btn = this;
+    setBusy(btn, true, 'Submitting...');
+    function done(n) { toast('Submitted ' + n + ' URLs'); clearSelection(); loadUrls(); }
+    function fail(err) { toast(err.message, 'error'); }
+    if (selectAllMatching) {
+      collectMatching('url').then(function(urls) {
+        if (!urls.length) { setBusy(btn, false); return; }
+        var chunks = [];
+        for (var i = 0; i < urls.length; i += 10000) chunks.push(urls.slice(i, i + 10000));
+        var chain = Promise.resolve(0);
+        chunks.forEach(function(c) {
+          chain = chain.then(function(n) {
+            return api('/sites/' + siteId + '/submit', { method: 'POST', body: JSON.stringify({ urls: c }) })
+              .then(function(r) { return n + (r.urlCount || 0); });
+          });
+        });
+        chain.then(done).catch(fail).finally(function() { setBusy(btn, false); });
+      }).catch(function(err) { fail(err); setBusy(btn, false); });
+      return;
+    }
     var urls = currentRows.filter(function(r) { return selectedIds.has(r.id); }).map(function(r) { return r.url; });
-    if (!urls.length) return;
+    if (!urls.length) { setBusy(btn, false); return; }
     api('/sites/' + siteId + '/submit', { method: 'POST', body: JSON.stringify({ urls: urls }) })
-      .then(function(r) { toast('Submitted ' + r.urlCount + ' URLs'); selectedIds.clear(); loadUrls(); })
-      .catch(function(err) { toast(err.message, 'error'); });
+      .then(function(r) { done(r.urlCount); })
+      .catch(fail)
+      .finally(function() { setBusy(btn, false); });
   });
 
   document.getElementById('bulk-delete').addEventListener('click', function() {
-    if (!confirm('Delete ' + selectedIds.size + ' selected URLs?')) return;
+    var btn = this;
+    if (!confirm('Delete selected URLs?')) return;
+    setBusy(btn, true, 'Deleting...');
+    function done(n2) { toast('Deleted ' + n2 + ' URLs'); clearSelection(); loadUrls(); }
+    function fail(err) { toast(err.message, 'error'); }
+    if (selectAllMatching) {
+      collectMatching('id').then(function(ids) {
+        if (!ids.length) { setBusy(btn, false); return; }
+        var chunks = [];
+        for (var i = 0; i < ids.length; i += 5000) chunks.push(ids.slice(i, i + 5000));
+        var chain = Promise.resolve(0);
+        chunks.forEach(function(c) {
+          chain = chain.then(function(n3) {
+            return api('/sites/' + siteId + '/urls/bulk-delete', { method: 'POST', body: JSON.stringify({ ids: c }) })
+              .then(function(r) { return n3 + (r.deleted || 0); });
+          });
+        });
+        chain.then(done).catch(fail).finally(function() { setBusy(btn, false); });
+      }).catch(function(err) { fail(err); setBusy(btn, false); });
+      return;
+    }
     api('/sites/' + siteId + '/urls/bulk-delete', { method: 'POST', body: JSON.stringify({ ids: Array.from(selectedIds) }) })
-      .then(function(r) { toast('Deleted ' + r.deleted + ' URLs'); selectedIds.clear(); loadUrls(); })
-      .catch(function(err) { toast(err.message, 'error'); });
+      .then(function(r) { done(r.deleted); })
+      .catch(fail)
+      .finally(function() { setBusy(btn, false); });
   });
 
   // Per-row actions (delegated)
@@ -765,25 +1006,46 @@
     if (!btn) return;
     if (btn.classList.contains('row-action-submit')) {
       var url = btn.dataset.url;
+      btn.disabled = true;
+      btn.classList.add('opacity-50');
+      btn.setAttribute('aria-busy', 'true');
       api('/sites/' + siteId + '/submit', { method: 'POST', body: JSON.stringify({ urls: [url] }) })
         .then(function() { toast('Submitted 1 URL'); loadUrls(); })
-        .catch(function(err) { toast(err.message, 'error'); });
+        .catch(function(err) { toast(err.message, 'error'); })
+        .finally(function() { btn.disabled = false; btn.classList.remove('opacity-50'); btn.removeAttribute('aria-busy'); });
     } else if (btn.classList.contains('row-action-copy')) {
       navigator.clipboard.writeText(btn.dataset.url).then(function() { toast('URL copied'); });
     } else if (btn.classList.contains('row-action-delete')) {
       if (!confirm('Delete this URL?')) return;
+      btn.disabled = true;
+      btn.classList.add('opacity-50');
       api('/sites/' + siteId + '/urls/bulk-delete', { method: 'POST', body: JSON.stringify({ ids: [parseInt(btn.dataset.id)] }) })
         .then(function() { toast('URL deleted'); loadUrls(); })
-        .catch(function(err) { toast(err.message, 'error'); });
+        .catch(function(err) { toast(err.message, 'error'); })
+        .finally(function() { btn.disabled = false; btn.classList.remove('opacity-50'); });
     }
   });
 
-  // Delete all URLs
+  // Delete all URLs (danger zone in Site Settings, typed-host confirm)
+  document.getElementById('delete-all-confirm').addEventListener('input', function() {
+    var ok = siteData && this.value.trim() === siteData.host;
+    document.getElementById('btn-delete-all').disabled = !ok;
+  });
   document.getElementById('btn-delete-all').addEventListener('click', function() {
-    if (!confirm('Delete ALL URLs for this site? This cannot be undone.')) return;
+    var confirmInput = document.getElementById('delete-all-confirm');
+    if (!siteData || confirmInput.value.trim() !== siteData.host) return;
+    var btn = this;
+    setBusy(btn, true, 'Deleting...');
     api('/sites/' + siteId + '/urls?all=true', { method: 'DELETE' })
-      .then(function(r) { toast('Deleted ' + r.deleted + ' URLs'); loadUrls(); })
-      .catch(function(err) { toast(err.message, 'error'); });
+      .then(function(r) {
+        toast('Deleted ' + r.deleted + ' URLs');
+        settingsDialog.close();
+        selectedIds.clear();
+        selectAllMatching = false;
+        loadUrls();
+      })
+      .catch(function(err) { toast(err.message, 'error'); })
+      .finally(function() { setBusy(btn, false); });
   });
 
   // Site Settings dialog
@@ -797,6 +1059,9 @@
     document.getElementById('edit-level').value = siteData.submissionLevel;
     document.getElementById('edit-cron').value = siteData.cronInterval || 'daily';
     document.getElementById('edit-cron-wrap').classList.toggle('hidden', siteData.submissionLevel !== 'scheduled');
+    document.getElementById('delete-all-host').textContent = siteData.host;
+    document.getElementById('delete-all-confirm').value = '';
+    document.getElementById('btn-delete-all').disabled = true;
     settingsDialog.showModal();
   });
 
@@ -810,6 +1075,8 @@
   document.getElementById('site-settings-form').addEventListener('submit', function(e) {
     e.preventDefault();
     var form = new FormData(this);
+    var saveBtn = this.querySelector('button[type="submit"]');
+    setBusy(saveBtn, true, 'Saving...');
     api('/sites/' + siteId, {
       method: 'PATCH',
       body: JSON.stringify({
@@ -828,14 +1095,18 @@
       document.getElementById('site-name').textContent = siteData.name;
       document.getElementById('site-host').textContent = siteData.host;
       loadUrls();
-    }).catch(function(err) { toast(err.message, 'error'); });
+    }).catch(function(err) { toast(err.message, 'error'); })
+      .finally(function() { setBusy(saveBtn, false); });
   });
 
   document.getElementById('btn-delete-site').addEventListener('click', function() {
     if (!confirm('Delete this site and all its URLs? This cannot be undone.')) return;
+    var btn = this;
+    setBusy(btn, true, 'Deleting...');
     api('/sites/' + siteId, { method: 'DELETE' })
       .then(function() { toast('Site deleted'); window.location.href = '/'; })
-      .catch(function(err) { toast(err.message, 'error'); });
+      .catch(function(err) { toast(err.message, 'error'); })
+      .finally(function() { setBusy(btn, false); });
   });
 
   // Custom URL dialog
@@ -852,8 +1123,7 @@
     var lines = document.getElementById('custom-urls-input').value.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
     if (!lines.length) { toast('Enter at least one URL', 'error'); return; }
     var btn = document.getElementById('btn-custom-submit');
-    btn.disabled = true;
-    btn.textContent = 'Submitting...';
+    setBusy(btn, true, 'Submitting...');
     api('/sites/' + siteId + '/submit', { method: 'POST', body: JSON.stringify({ urls: lines }) })
       .then(function(r) {
         toast('Submitted ' + r.urlCount + ' URLs');
@@ -861,7 +1131,7 @@
         loadUrls();
       })
       .catch(function(err) { toast(err.message, 'error'); })
-      .finally(function() { btn.disabled = false; btn.textContent = 'Submit URLs'; });
+      .finally(function() { setBusy(btn, false); });
   });
 })();
 </script>

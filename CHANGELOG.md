@@ -2,6 +2,36 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## [0.9.0] - 2026-09-17
+
+### Added
+- **Site URLs page: per-page selector (20/30/50/100, default 20, persisted).**
+- **Unified busy states on every async action** (Sync, Submit Pending, Reset, Prune, bulk
+  submit/delete, per-row submit/delete, verify key, custom-URL submit, settings save, sitemap
+  toggles/fixes): spinner + label swap + `aria-busy`, restored on completion.
+- **Sitemaps dialog**: child sitemaps moved out of the inline accordion into a modal with
+  per-sitemap include checkbox, clickable link, and URL count; opener shows included/total.
+- **Cross-page bulk selection**: "Select all N matching" promotes page selection to the full
+  filtered result (collected in 500-row pages, submitted/deleted in server-limit chunks).
+- **Keyboard shortcuts**: `/` focuses search, `Esc` clears, arrow keys paginate,
+  `Ctrl/Cmd+A` selects the page.
+- **Relative dates** in Lastmod / Last seen / Submitted columns with full timestamp on hover.
+- **Delete All URLs hardened**: moved from the action row into a Site Settings danger zone,
+  enabled only when the site host is typed to confirm.
+
+### Changed
+- **Site URLs layout streamlined**: removed the stats bar and status pills (counts triplicated
+  the same numbers); counts now live in the status filter dropdown, pending count as a badge
+  on Submit Pending, totals in the page info line.
+- **URL table is scrollable**: capped at 520px with sticky header (inline style, immune to
+  stale Tailwind builds — the previous `max-h-[520px]` class was never emitted because
+  `dist/globals.css` predated the template change).
+
+### Fixed
+- Host-mismatch banner now re-hides on clean reloads; error-row colspan corrected.
+- Icon-only row/pagination buttons and search input given accessible names; toasts announced
+  via `aria-live`.
+
 ## [0.8.2] - 2026-09-16
 
 ### Fixed
